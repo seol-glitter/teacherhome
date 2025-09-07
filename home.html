@@ -1,0 +1,76 @@
+<!doctype html>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>교사 홈(세션 생성)</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px; line-height:1.5}
+  input{padding:8px; border:1px solid #ddd; border-radius:8px; width:100%; max-width:360px}
+  button{padding:10px 16px; border:0; border-radius:10px; font-weight:700; background:#111; color:#fff; margin-top:8px}
+  .links a{display:block; margin:8px 0; padding:10px; background:#f4f4f4; border-radius:10px; text-decoration:none; color:#111}
+  .note{font-size:12px; opacity:.75}
+</style>
+
+<body>
+  <h2>교사 홈</h2>
+  <div>
+    <div>반 이름</div>
+    <input id="klass" placeholder="예: 무지개반" />
+    <div style="margin-top:8px">아동(가명/번호)</div>
+    <input id="child" placeholder="예: 3번" />
+    <button id="create">세션 만들기</button>
+    <div id="msg" class="note" style="margin-top:8px"></div>
+  </div>
+
+  <h3 style="margin-top:20px">문제 링크</h3>
+  <div class="links" id="links">
+    <div class="note">세션을 먼저 만들면 여기에 버튼이 나타납니다.</div>
+  </div>
+
+<script>
+// ★ Apps Script /exec 주소로 바꾸세요
+const SESSION_API = "https://script.google.com/macros/s/여기_exec_URL/exec";
+
+// 운영: 문제 목록(원하는 만큼 추가/수정)
+const PROBLEMS = [
+  { id:"불신고1",   title:"문제1 · 불 신고" },
+  { id:"대피안내2", title:"문제2 · 대피 안내" },
+  { id:"119질문3",  title:"문제3 · 119 질문" }
+];
+
+const msg = document.getElementById('msg');
+const links = document.getElementById('links');
+
+document.getElementById('create').onclick = async ()=>{
+  const klass = document.getElementById('klass').value.trim();
+  const child = document.getElementById('child').value.trim();
+  if (!klass){ alert('반 이름을 입력하세요'); return; }
+
+  // 1) 세션 발급 요청
+  const fd = new FormData();
+  fd.append('action','createSession');
+  fd.append('classId', klass);
+  fd.append('child',   child);
+
+  try{
+    const res = await fetch(SESSION_API, { method:'POST', body:fd });
+    const j = await res.json();
+    if (!j.sid){ alert('세션 생성 실패:\n'+JSON.stringify(j)); return; }
+
+    msg.textContent = `세션 준비 완료(유효기간 ~ ${j.expiresAt}). 아래 링크로 문제를 여세요.`;
+
+    // 2) sid 포함 문제 링크 생성
+    links.innerHTML = '';
+    PROBLEMS.forEach(p=>{
+      const a = document.createElement('a');
+      a.textContent = p.title;
+      // ★ 여기 주소를 여러분의 문제 페이지 URL로!
+      //   (예: GitHub Pages의 capture.html)
+      a.href = `https://your-domain.example.com/capture.html?sid=${encodeURIComponent(j.sid)}&problem=${encodeURIComponent(p.id)}`;
+      a.target = '_blank';
+      links.appendChild(a);
+    });
+  }catch(e){
+    alert('네트워크 오류:\n'+e);
+  }
+};
+</script>
+</body>
