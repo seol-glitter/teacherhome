@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>교사용 홈 · 불의 마법을 푸는 안전 열쇠</title>
+<style>
+  :root{
+    --bg-top:#cfe9fb;
+    --bg-bottom:#ffffff;
+    --ink:#0b2a4a;
+    --accent:#0f2f57;
+    --pill:#0d2744;
+    --card:#f6fbff;
+    --line:#d7e7f5;
+    --ok:#1a9a5d;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; font-family: "Pretendard", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bottom));
+  }
+  .wrap{max-width:1024px; margin:0 auto; padding:18px 14px 40px}
+  .banner{display:block; width:100%; max-width:980px; margin:0 auto}
+  .sub{
+    margin:12px auto 18px; display:inline-block; padding:10px 18px; border-radius:999px;
+    background:var(--pill); color:#fff; font-weight:800; letter-spacing:.4px; box-shadow:0 2px 0 rgba(0,0,0,.2);
+  }
+
+  .grid{display:grid; gap:14px; grid-template-columns:1fr 1fr}
+  @media (max-width:920px){ .grid{grid-template-columns:1fr} }
+
+  .box{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:20px; padding:16px 16px 18px; box-shadow:0 8px 30px rgba(13,39,68,.06);
+  }
+  h3{margin:2px 0 10px; font-size:20px}
+  label{display:block; font-size:14px; margin:10px 0 6px; font-weight:700}
+  input, textarea, button{
+    width:100%; box-sizing:border-box; border-radius:14px; border:1px solid var(--line);
+    padding:12px 14px; font-size:16px; background:#fff; outline:none;
+  }
+  textarea{min-height:150px; resize:vertical}
+  button{
+    background:var(--accent); color:#fff; font-weight:800; border:none; cursor:pointer;
+    box-shadow:0 6px 14px rgba(15,47,87,.18); transition:transform .04s ease;
+  }
+  button:active{ transform:translateY(1px) }
+  .row{display:flex; gap:10px; align-items:center}
+  .note{font-size:12px; opacity:.75}
+  .ok{color:var(--ok)}
+  .links a{
+    display:block; text-decoration:none; color:var(--ink);
+    background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin:8px 0;
+  }
+  .muted{opacity:.6}
+</style>
+
+<body>
+  <div class="wrap">
+    <!-- 상단 배너(이미지) -->
+    <img class="banner" src="https://seol-glitter.github.io/teacherhome/banner.png" alt="불의 마법을 푸는 안전 열쇠 배너">
+    <!-- 서브 타이틀 -->
+    <div class="sub">교사용 홈화면</div>
+
+    <div class="grid">
+      <!-- A. 기본 정보 + 세션 만들기 -->
+      <section class="box">
+        <h3>세션 만들기</h3>
+        <label>기관명</label>
+        <input id="schoolId" placeholder="예: 세천유치원" />
+
+        <label>반 이름</label>
+        <input id="classId" placeholder="예: 무지개반" />
+
+        <label>교사용 비밀번호</label>
+        <input id="tcode" type="password" placeholder="예: RAINBOW-2025" />
+
+        <label>기본 닉네임 <span class="note">(유아가 이름을 선택하지 않을 때 표시 · 선택)</span></label>
+        <input id="defaultChild" placeholder="예: 꽃잎1 / 무지개-07" />
+
+        <div class="row" style="margin-top:12px">
+          <button id="create">세션 만들기</button>
+          <div id="msg" class="note"></div>
+        </div>
+
+        <h3 style="margin-top:20px">문제 링크</h3>
+        <div id="links" class="links">
+          <div class="note muted">세션을 먼저 만들면 여기에 버튼이 나타납니다.</div>
+        </div>
+      </section>
+
+      <!-- B. 학급 유아 명단 등록/수정 -->
+      <section class="box">
+        <h3>학급 유아 명단 등록/수정</h3>
+        <div class="note">한 줄에 한 명(엔터 구분) 또는 쉼표(,)로 구분 가능합니다.</div>
+
+        <!-- 폼 POST: 긴 데이터 전송 & CORS 문제 없음 -->
+        <form id="rosterForm" method="post" target="hidden_iframe"
+              action="https://script.google.com/macros/s/AKfycbz5pKtRtaS0TVlJT74yJ6a2lpCS_pc1N8E5PZ0k8tOjZsiHlyMUskzw66JXN80gaVN4Tg/exec"
+              onsubmit="return submitRoster()">
+          <input type="hidden" name="action"   value="saveRoster">
+          <input type="hidden" name="schoolId" id="f_school">
+          <input type="hidden" name="classId"  id="f_class">
+          <input type="hidden" name="code"     id="f_code">
+
+          <label>유아 명단</label>
+          <textarea name="roster" id="f_roster" placeholder="예)
+민준
+서윤
+지호
+하린"></textarea>
+
+          <div class="row" style="margin-top:10px">
+            <button type="submit">명단 저장</button>
+            <div id="saveMsg" class="note"></div>
+          </div>
+        </form>
+        <iframe name="hidden_iframe" style="display:none"></iframe>
+
+        <p class="note" style="margin-top:10px">
+          ※ 전국 배포용: 각 교사는 <b>기관명·반·교사용 비밀번호</b>로 자신의 반만 관리합니다.
+        </p>
+      </section>
+    </div>
+  </div>
+
+<script>
+/* ===== 설정 ===== */
+const SESSION_API = "https://script.google.com/macros/s/AKfycbz5pKtRtaS0TVlJT74yJ6a2lpCS_pc1N8E5PZ0k8tOjZsiHlyMUskzw66JXN80gaVN4Tg/exec";
+
+const PROBLEMS = [
+  { id:"02_위험찾기",         title:"2) 위험 찾기" },
+  { id:"03_화재대피안전수칙", title:"3) 화재 대피 안전수칙" },
+  { id:"04_비상구로대피",     title:"4) 비상구로 대피하기" },
+  { id:"05_옷에불이붙었어요", title:"5) 옷에 불이 붙었어요" },
+  { id:"06_119신고하기",      title:"6) 119 신고하기" },
+  { id:"07_소화기사용법",     title:"7) 소화기 사용법" },
+  { id:"08_완강기사용법",     title:"8) 완강기 사용법" }
+];
+
+/* ===== JSONP 유틸 ===== */
+function jsonp(url, timeoutMs=10000){
+  return new Promise((resolve, reject)=>{
+    const cb = 'cb_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+    let done=false, timer=null;
+    window[cb]=(data)=>{ if(done) return; done=true; cleanup(); resolve(data); };
+    function cleanup(){ try{delete window[cb];}catch(e){} if(s&&s.parentNode)s.parentNode.removeChild(s); if(timer)clearTimeout(timer); }
+    const s=document.createElement('script');
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
+    s.onerror=()=>{ if(done) return; done=true; cleanup(); reject(new Error('JSONP failed')); };
+    document.body.appendChild(s);
+    timer=setTimeout(()=>{ if(done) return; done=true; cleanup(); reject(new Error('Timeout')); }, timeoutMs);
+  });
+}
+
+/* ===== 명단 저장(폼) ===== */
+let submitted=false;
+function submitRoster(){
+  const school=$('#schoolId'), klass=$('#classId'), code=$('#tcode');
+  if(!school||!klass||!code){ alert('기관명/반/교사용 비밀번호를 입력하세요.'); return false; }
+  $('#f_school',school); $('#f_class',klass); $('#f_code',code);
+  submitted=true; $('#saveMsg','저장 중…');
+  return true;
+}
+document.querySelector('iframe[name="hidden_iframe"]').addEventListener('load', ()=>{
+  if(submitted){ $('#saveMsg','<span class="ok">저장 완료</span>'); submitted=false; }
+});
+
+/* ===== 세션 만들기 ===== */
+document.getElementById('create').onclick=async()=>{
+  const school=$('#schoolId'), klass=$('#classId'), code=$('#tcode'), child=$('#defaultChild')||'';
+  if(!school||!klass||!code){ alert('기관명/반/교사용 비밀번호를 입력하세요.'); return; }
+  try{
+    const qs=new URLSearchParams({action:'createSession', schoolId:school, classId:klass, code:code, child:child}).toString();
+    const j=await jsonp(`${SESSION_API}?${qs}`);
+    if(!j.sid){ alert('세션 생성 실패:\n'+JSON.stringify(j)); return; }
+    $('#msg',`세션 생성 완료 (만료 ~ ${j.expiresAt})`);
+    const links=document.getElementById('links'); links.innerHTML='';
+    PROBLEMS.forEach(p=>{
+      const a=document.createElement('a');
+      a.textContent=p.title;
+      a.href=`https://seol-glitter.github.io/teachercapture/?sid=${encodeURIComponent(j.sid)}&problem=${encodeURIComponent(p.id)}`;
+      a.target='_blank';
+      links.appendChild(a);
+    });
+  }catch(e){
+    alert('네트워크 오류(JSONP): '+e.message);
+  }
+};
+
+/* ===== 작은 헬퍼 ===== */
+function $(idOrEl, val){
+  if(typeof idOrEl==='string'){
+    const el=document.getElementById(idOrEl.replace(/^#/,''));
+    if(val!==undefined){ el.innerHTML=val; }
+    return el?.value?.trim?.() ?? null;
+  }else{
+    const [hid, v]=idOrEl; document.getElementById(hid.replace(/^#/,'')).value=v;
+  }
+}
+</script>
+</body>
+</html>
