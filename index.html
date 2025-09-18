@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>선생님 홈</title>
+<style>
+:root{ --bg:#0b1220; --card:#101827; --ink:#e6f4ff; --mut:#9fb6cc; --pri:#38bdf8; --priD:#0891b2; --warn:#ef4444; --ok:#22c55e; }
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:linear-gradient(180deg,#0b1220,#122033);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+h1{margin:0 0 10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;background:#11324e;color:#a3eaff;font-weight:800;font-size:12px}
+.badge.off{background:#3a1820;color:#ffb4c2}
+.card{background:var(--card);border:1px solid #1f2b3a;border-radius:16px;padding:16px;margin:12px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1}
+input{width:100%;padding:12px;border:1px solid #2a3b50;border-radius:12px;background:#0f1b2a;color:#e6f4ff}
+.btn{padding:12px 14px;border:0;border-radius:12px;background:var(--pri);color:#00131d;font-weight:900;cursor:pointer}
+.btn:hover{background:var(--priD);color:#fff}
+.btn.sec{background:#334155;color:#e6f4ff}
+.btn.warn{background:var(--warn);color:#fff}
+.note{font-size:12px;color:var(--mut)}
+a.btn{display:inline-block;text-decoration:none;text-align:center}
+hr{border:none;border-top:1px solid #1f2b3a;margin:14px 0}
+small.code{font-family:ui-monospace,Menlo,Consolas,monospace;color:#9dd2ff}
+</style>
+<body>
+<div class="wrap">
+  <h1>선생님 홈 <span id="status" class="badge">확인 중…</span></h1>
+
+  <!-- 로그인/연결 -->
+  <div class="card" id="bindCard">
+    <h3>학급 생성/연결</h3>
+    <div class="row">
+      <input id="school" placeholder="기관명">
+      <input id="klass" placeholder="학급명">
+      <input id="tcode" type="password" placeholder="교사용 비밀번호(새로 만들거나 기존 비밀번호 입력)">
+    </div>
+    <div class="row">
+      <button class="btn" id="btnBind">로그인 & 연결</button>
+      <button class="btn sec" id="btnPing">연결 진단</button>
+    </div>
+    <div class="note" id="bindMsg"></div>
+    <div id="authHelp" class="note" style="display:none">
+      동일한 기관/학급명이 <b>이미 다른 비밀번호로 잠겨</b> 있어요.<br>
+      아래 버튼으로 <b>새 학급명으로 재가입</b>할 수 있어요. (예: 같은 반 이름에 연도/학기 덧붙이기)
+      <div class="row" style="margin-top:8px">
+        <input id="klassNew" placeholder="새 학급명 (예: 꽃잎반-2025)">
+        <button class="btn" id="btnRecreate">새 학급으로 재가입</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 연결됨 -->
+  <div class="card" id="connectedCard" style="display:none">
+    <h3>연결 상태</h3>
+    <div class="note">기관: <b id="vSchool"></b> · 학급: <b id="vKlass"></b> · 모드: <b id="vMode"></b></div>
+    <div class="row" style="margin-top:10px">
+      <a class="btn" id="goDash" href="#">대시보드 열기</a>
+      <a class="btn sec" id="goCap"  href="#">캡쳐 열기(예시: P1)</a>
+    </div>
+    <div class="note">* 캡쳐 페이지는 <small class="code">?problem=문항코드</small>가 필요합니다. (예: <small class="code">P1</small>)</div>
+  </div>
+
+  <!-- 기기 초기화 -->
+  <div class="card">
+    <h3>기기 연결 해제(초기화)</h3>
+    <div class="row">
+      <button class="btn warn" id="btnReset">기기 연결 해제</button>
+    </div>
+    <div class="note">이 기기에 저장된 연결정보를 모두 지우고 <b>손님모드</b>로 전환합니다. 전임자 비밀번호를 몰라도 <b>다시 가입</b>할 수 있어요.</div>
+  </div>
+
+  <div class="card">
+    <h3>모드 안내</h3>
+    <div class="note">
+      기본은 <b>B모드</b>(로컬 임시매칭). A모드(얼굴 임베딩 자동분류)는 학부모 동의 기관에만 사용합니다.<br>
+      이 페이지를 <small class="code">?mode=a</small>로 열면 A모드가 켜지고, 대시보드/캡쳐에도 자동 전파됩니다.
+    </div>
+  </div>
+</div>
+
+<script>
+// === GAS 웹앱 URL (고정) ===
+const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
+const EXEC_B = "https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
+
+const qs = new URLSearchParams(location.search);
+const mode = (qs.get('mode')||localStorage.getItem('mode')||'b').toLowerCase()==='a' ? 'a' : 'b';
+localStorage.setItem('mode', mode);
+
+const $=id=>document.getElementById(id);
+const statusEl=$('status');
+function setStatus(connected){
+  if(connected){ statusEl.textContent='연결됨'; statusEl.classList.remove('off'); }
+  else{ statusEl.textContent='손님모드'; statusEl.classList.add('off'); }
+}
+function jsonp(url, timeoutMs=8000){
+  return new Promise((res,rej)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2);
+    let done=false; const timer=setTimeout(()=>{ if(done) return; done=true; cleanup(); rej(new Error('timeout')); }, timeoutMs);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(timer); }
+    window[cb]=(data)=>{ if(done) return; done=true; cleanup(); res(data); };
+    const s=document.createElement('script');
+    s.src = url + (url.includes('?')?'&':'?') + 'callback='+cb;
+    s.onerror=()=>{ if(done) return; done=true; cleanup(); rej(new Error('network')); };
+    document.body.appendChild(s);
+  });
+}
+
+function refresh(){
+  const tk=(localStorage.getItem('tk')||'').trim();
+  const connected=!!tk;
+  setStatus(connected);
+  $('bindCard').style.display = connected ? 'none' : '';
+  $('connectedCard').style.display = connected ? '' : 'none';
+  if(connected){
+    $('vSchool').textContent = localStorage.getItem('schoolId')||'';
+    $('vKlass').textContent = localStorage.getItem('classId')||'';
+    $('vMode').textContent = (mode==='a'?'A모드':'B모드');
+    const base = location.origin + location.pathname.replace(/home\.html$/,'');
+    $('goDash').href = base + 'dashboard.html' + (mode==='a'?'?mode=a':'');
+    $('goCap').href  = base + 'capture/index.html?problem=P1' + (mode==='a'?'&mode=a':'');
+  }
+}
+refresh();
+
+$('btnPing').onclick = async ()=>{
+  const EXEC = (mode==='a')?EXEC_A:EXEC_B;
+  const tgt = EXEC+'?action=ping';
+  try{
+    const j=await jsonp(tgt);
+    $('bindMsg').textContent = (j&&j.ok)? '연결 정상(핑 OK)' : '응답 비정상';
+  }catch(e){ $('bindMsg').textContent = '네트워크/권한 오류로 핑 실패'; }
+};
+
+$('btnBind').onclick = async ()=>{
+  const EXEC = (mode==='a')?EXEC_A:EXEC_B;
+  const school=$('school').value.trim(), klass=$('klass').value.trim(), code=$('tcode').value.trim();
+  if(!school||!klass||!code){ $('bindMsg').textContent='기관/학급/비밀번호를 모두 입력해주세요'; return; }
+  $('bindMsg').textContent='연결 중…';
+  try{
+    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'key',schoolId:school,classId:klass,code:code}));
+    if(j&&j.ok&&j.teacherKey){
+      localStorage.setItem('tk', j.teacherKey);
+      localStorage.setItem('schoolId', school);
+      localStorage.setItem('classId', klass);
+      $('bindMsg').textContent='연결 성공';
+      $('authHelp').style.display='none';
+      refresh();
+    }else{
+      const err=(j&&j.error)||'';
+      if(err==='auth'){
+        $('bindMsg').textContent='비밀번호가 일치하지 않습니다.';
+        $('authHelp').style.display='';
+        $('klassNew').value = klass + '-' + new Date().toISOString().slice(0,10).replace(/-/g,'');
+      }else{
+        $('bindMsg').textContent='실패: '+err;
+      }
+    }
+  }catch(e){ $('bindMsg').textContent='네트워크 오류/타임아웃'; }
+};
+
+$('btnRecreate').onclick = async ()=>{
+  const EXEC = (mode==='a')?EXEC_A:EXEC_B;
+  const school=$('school').value.trim(), klass=$('klassNew').value.trim(), code=$('tcode').value.trim();
+  if(!school||!klass||!code){ $('bindMsg').textContent='새 학급명과 비밀번호를 입력하세요'; return; }
+  $('bindMsg').textContent='새 학급으로 가입 중…';
+  try{
+    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'key',schoolId:school,classId:klass,code:code}));
+    if(j&&j.ok&&j.teacherKey){
+      localStorage.setItem('tk', j.teacherKey);
+      localStorage.setItem('schoolId', school);
+      localStorage.setItem('classId', klass);
+      $('bindMsg').textContent='새 학급으로 가입 완료';
+      $('authHelp').style.display='none';
+      refresh();
+    }else{
+      $('bindMsg').textContent='실패: '+((j&&j.error)||'');
+    }
+  }catch(e){ $('bindMsg').textContent='네트워크 오류/타임아웃'; }
+};
+
+$('btnReset').onclick = ()=>{
+  if(!confirm('이 기기의 연결정보를 모두 삭제하고 손님모드로 전환합니다. 진행할까요?')) return;
+  try{
+    // 로컬 초기화(전임자 PW 불필요)
+    ['tk','schoolId','classId','faceDB'].forEach(k=>localStorage.removeItem(k));
+  }catch(_){}
+  alert('초기화되었습니다. 새로 가입하여 사용하실 수 있습니다.');
+  refresh();
+};
+</script>
+</body>
+</html>
