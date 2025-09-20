@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Redirecting…</title>
+<style>body{margin:0;display:grid;place-items:center;height:100vh;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#eaf6ff;color:#0f172a}</style>
+<body>이동 중…
+<script>
+(function(){
+  var segs = location.pathname.split('/').filter(Boolean);
+  var base = segs.length ? '/' + segs[0] : '';  // "/<repo>" 또는 ""
+  var last = segs[segs.length-1]||'';
+  var q = location.search || '', h = location.hash || '';
+  var map = {
+    'dashboard': 'dashboard.html',
+    'capture':   'capture.html',
+    'teacherhome':'index.html',
+    'home':'index.html'
+  };
+  if(map[last]){ location.replace(base + '/' + map[last] + q + h); return; }
+  location.replace(base + '/index.html' + q + h);
+})();
+</script>
+</body>
+</html>
