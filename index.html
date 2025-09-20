@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>교사용 홈화면</title>
+<style>
+:root{
+  --bg1:#dff0ff; --bg2:#eaf6ff; --ink:#0f172a;
+  --card:#ffffff; --line:#d7e7f5;
+  --primary:#0ea5e9; --primaryD:#0284c7;
+  --success:#22c55e; --danger:#ef4444; --muted:#64748b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+     background:linear-gradient(180deg,var(--bg1),var(--bg2))}
+.wrap{max-width:1120px;margin:24px auto;padding:0 16px}
+
+/* 배너 */
+.banner{position:relative;background:#e7f3ff;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.banner img{display:block;width:100%;height:auto}
+.banner .pill{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
+  background:#0f172a;color:#fff;padding:10px 18px;border-radius:999px;font-weight:900;
+  box-shadow:0 4px 0 rgba(0,0,0,.15)}
+.badge{display:inline-block;margin-left:8px;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px}
+.badge.on{background:#dcfce7;color:#065f46}
+.badge.off{background:#fee2e2;color:#991b1b}
+
+/* 본문 카드 */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px}
+.card h3{margin:0 0 12px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+input{width:100%;padding:12px;border-radius:12px;border:1px solid #cbd5e1;background:#fff}
+.btn{padding:12px 16px;border-radius:12px;border:0;font-weight:900;color:#fff;cursor:pointer}
+.btn.primary{background:var(--primary)} .btn.primary:hover{background:var(--primaryD)}
+.btn.success{background:var(--success)}
+.btn.danger{background:var(--danger)}
+.btn.muted{background:#334155}
+.note{font-size:12px;color:#334155}
+.bullets{margin:0;padding-left:18px;color:#334155}
+.bullets li{margin:6px 0}
+@media (max-width:900px){ .grid{grid-template-columns:1fr} }
+</style>
+<body>
+<div class="wrap">
+
+  <!-- 배너 이미지 (루트의 banner.png 사용) -->
+  <div class="banner">
+    <img id="bannerImg" alt="불의 마법을 푸는 안전 열쇠">
+    <div class="pill">유아 화재 안전 교육</div>
+  </div>
+
+  <div style="margin:12px 0 0 4px;font-weight:800">
+    교사용 홈 <span id="bindState" class="badge off">손님</span>
+  </div>
+
+  <div class="grid">
+    <!-- 좌측: 기관/반 설정 -->
+    <div class="card">
+      <h3>기관/반 설정</h3>
+      <div class="row"><input id="school" placeholder="기관명" /></div>
+      <div class="row"><input id="klass"  placeholder="반 이름" /></div>
+      <div class="row"><input id="tcode"  type="password" placeholder="교사용 비밀번호  (예: RAINBOW-2025)" /></div>
+      <div class="row">
+        <button class="btn primary" id="goDashboardBtn">나의 학급 들어가기</button>
+        <button class="btn muted"   id="joinBtn">학급 생성</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn danger" id="unbindBtn" title="이 기기의 연결정보 삭제">기기 연결 해제</button>
+      </div>
+      <div class="note" style="margin-top:4px">
+        ※ <b>기기 연결 해제</b> 버튼을 누르면 <b>이 기기에 저장된 정보가 삭제</b>되어 손님모드로 전환됩니다. (서버의 학급·기록은 보존)
+      </div>
+      <div class="note" id="msg" style="margin-top:10px"></div>
+    </div>
+
+    <!-- 우측: 수업하기 패널 -->
+    <div class="card">
+      <h3>수업하기</h3>
+      <div class="row">
+        <button class="btn success" id="lessonBtn">수업하기 (가입 없이 바로 사용)</button>
+      </div>
+      <div class="note" style="margin-top:8px">안내</div>
+      <ul class="bullets">
+        <li>‘수업하기’는 가입 없이 대집단 수업에 바로 활용할 수 있습니다.</li>
+        <li>‘학급 생성’으로 학급 유아의 성취 상황을 기록할 수 있습니다.</li>
+        <li>‘나의 학급 들어가기’에서 학급 유아의 성취 상황을 확인할 수 있습니다.</li>
+        <li>같은 기관·반 이름이라도 <b>비밀번호가 다르면</b> 서로 다른 독립 학급으로 인식됩니다.</li>
+        <li>수집된 자료는 가입일로부터 18개월 후 자동 삭제됩니다.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- 배너 이미지 경로(루트의 banner.png) ---------- */
+(function(){
+  // 저장소 루트를 자동 계산해 /<repo>/banner.png 로 지정
+  const segs = location.pathname.split('/').filter(Boolean);
+  const base = segs.length ? '/' + segs[0] : '';
+  const BANNER_ABS = base + '/banner.png';      // 필요 시 다른 경로로 교체
+  document.getElementById('bannerImg').src = BANNER_ABS;
+})();
+
+/* ---------- 설정 ---------- */
+const EXEC_A="https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
+const EXEC_B="https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
+// 홈은 기본 B모드. (특정 기관 안내 시 ?mode=a 붙이면 자동 전파)
+const qs=new URLSearchParams(location.search);
+const mode=(qs.get('mode')||localStorage.getItem('mode')||'b').toLowerCase()==='a'?'a':'b';
+localStorage.setItem('mode', mode);
+const EXEC=(mode==='a')?EXEC_A:EXEC_B;
+
+// capture.html 사용 기준
+function repoBase(){ const segs=location.pathname.split('/').filter(Boolean); return segs.length?('/'+segs[0]):''; }
+const DASH = () => repoBase() + '/dashboard.html';
+const CAP  = (problem) => repoBase() + '/capture.html?problem='+encodeURIComponent(problem)+(mode==='a'?'&mode=a':'');
+
+/* ---------- JSONP ---------- */
+function jsonp(url, timeout=10000){
+  return new Promise((res,rej)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2);
+    let done=false;
+    const timer=setTimeout(()=>{ if(done) return; done=true; cleanup(); rej(new Error('timeout')); }, timeout);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(timer); }
+    window[cb]=(data)=>{ if(done) return; done=true; cleanup(); res(data); };
+    const s=document.createElement('script');
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
+    s.onerror=()=>{ if(done) return; done=true; cleanup(); rej(new Error('network')); };
+    document.body.appendChild(s);
+  });
+}
+
+/* ---------- 상태 표시 ---------- */
+const $ = (id)=>document.getElementById(id);
+function drawState(){
+  const on = !!(localStorage.getItem('tk')||localStorage.getItem('teacherKey'));
+  const el = $('bindState');
+  el.textContent = on ? '연결됨' : '손님';
+  el.className = 'badge ' + (on?'on':'off');
+}
+drawState();
+
+/* ---------- 이벤트 ---------- */
+$('lessonBtn').onclick = ()=>{ location.href = CAP('02_위험찾기'); }; // 기본 문항(필요 시 변경)
+
+$('unbindBtn').onclick = ()=>{
+  if(!confirm('이 기기의 연결정보를 삭제하고 손님모드로 전환합니다. 진행할까요?')) return;
+  ['tk','teacherKey','schoolId','classId','faceDB'].forEach(k=>localStorage.removeItem(k));
+  $('msg').textContent='이 기기의 저장정보가 삭제되었습니다.';
+  drawState();
+};
+
+$('joinBtn').onclick = bindOnly;             // 학급 생성(= 로그인)
+$('goDashboardBtn').onclick = async ()=>{
+  const hasTk = !!(localStorage.getItem('tk')||localStorage.getItem('teacherKey'));
+  if(!hasTk){ const ok = await bindOnly(); if(!ok) return; }
+  location.href = DASH();
+};
+
+/* ---------- 바인딩 ---------- */
+async function bindOnly(){
+  const s=$('school').value.trim(), k=$('klass').value.trim(), c=$('tcode').value.trim();
+  if(!s||!k||!c){ $('msg').textContent='기관명/반 이름/비밀번호를 모두 입력하세요.'; return false; }
+  $('msg').textContent='서버 확인 중…';
+  try{
+    const j = await jsonp(EXEC+'?'+new URLSearchParams({action:'key',schoolId:s,classId:k,code:c}));
+    if(j&&j.ok&&j.teacherKey){
+      localStorage.setItem('tk', j.teacherKey);
+      localStorage.setItem('teacherKey', j.teacherKey); // 호환 저장
+      localStorage.setItem('schoolId', s); localStorage.setItem('classId', k);
+      $('msg').textContent='연결되었습니다.';
+      drawState();
+      return true;
+    }else{
+      $('msg').textContent = '실패: '+((j&&j.error)==='auth'?'비밀번호가 일치하지 않습니다.':'서버 응답 오류');
+      return false;
+    }
+  }catch(e){
+    $('msg').textContent='네트워크 오류 또는 타임아웃';
+    return false;
+  }
+}
+</script>
+</body>
+</html>
+
