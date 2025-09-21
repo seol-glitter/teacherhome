@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>캡쳐</title>
+<style>
+:root{
+  --bg1:#dff0ff; --bg2:#eaf6ff; --ink:#0f172a;
+  --btn:#0ea5e9; --btnD:#0284c7; --ok:#16a34a; --danger:#ef4444;
+}
+*{box-sizing:border-box}
+html,body{height:100%} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+  background:linear-gradient(180deg,var(--bg1),var(--bg2))}
+.wrap{min-height:100%;display:flex;align-items:center;justify-content:center;position:relative;padding:20px}
+
+/* 스플래시 */
+.splash{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.splash img{width:min(38vh,320px);height:auto;display:block}
+.title{font-size:clamp(32px,8vw,80px);font-weight:900;letter-spacing:-.02em}
+#guestNote{display:none}
+
+/* 카메라 */
+#camBox{display:none;flex-direction:column;align-items:center;gap:10px}
+video{width:min(96vw,1000px);height:auto;border-radius:16px;background:#000}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn{padding:12px 18px;border:0;border-radius:12px;color:#fff;font-weight:900;background:var(--btn);cursor:pointer}
+.btn:hover{background:var(--btnD)}
+.btn.ok{background:var(--ok)} .btn.danger{background:var(--danger)}
+
+/* 상단 닫기 */
+.close{position:fixed;top:16px;right:16px;background:#0f172a;color:#fff;border:0;border-radius:999px;padding:10px 14px;font-weight:900;cursor:pointer}
+
+/* 성공 오버레이 */
+#done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:10}
+.card{background:#fff;border-radius:16px;padding:24px 20px;text-align:center;max-width:min(92vw,700px)}
+.card h2{margin:0 0 10px;font-size:clamp(36px,10vw,92px)}
+.card p{margin:0}
+</style>
+<body>
+<button class="close" onclick="window.history.back()">닫기 ×</button>
+
+<div class="wrap">
+  <!-- 스플래시 -->
+  <div id="splash" class="splash">
+    <img id="splashImg" alt="안전 열쇠">
+    <div style="font-size:22px;margin-top:2px">안전 열쇠</div>
+    <div class="title">성공입니다!</div>
+    <div id="guestNote"> </div>
+  </div>
+
+  <!-- 카메라 영역 -->
+  <div id="camBox">
+    <video id="v" playsinline muted></video>
+    <div class="controls">
+      <button class="btn" id="btnStart">카메라 시작</button>
+      <button class="btn ok" id="btnShoot">촬영 & 업로드</button>
+      <input type="file" id="filePick" accept="image/*" capture="user" style="display:none"/>
+      <button class="btn" id="btnPick">사진 선택(폴백)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 업로드 성공 -->
+<div id="done">
+  <div class="card">
+    <h2>성공입니다!</h2>
+    <p>업로드가 완료되었습니다.</p>
+  </div>
+</div>
+
+<script>
+/* ---------- 절대 경로(teacherhome 루트) ---------- */
+const FIRE_IMG_ABS = '/teacherhome/fire-key.png'; // 저장소 루트에 둔 이미지
+document.getElementById('splashImg').src = FIRE_IMG_ABS;
+
+/* ---------- 실행 URL ---------- */
+const EXEC_A="https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
+const EXEC_B="https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
+
+/* ---------- 파라미터/상태 ---------- */
+const qs = new URLSearchParams(location.search);
+const mode = (qs.get('mode')||localStorage.getItem('mode')||'b').toLowerCase()==='a' ? 'a':'b';
+const EXEC = (mode==='a')?EXEC_A:EXEC_B;
+
+const problem = qs.get('problem') || ''; // 필수
+let tk = (qs.get('tk') || localStorage.getItem('tk') || localStorage.getItem('teacherKey') || '').trim();
+if(qs.get('tk')){ localStorage.setItem('tk', tk); localStorage.setItem('teacherKey', tk); } // 호환 저장
+
+const $=id=>document.getElementById(id);
+
+const splash=$('splash'), camBox=$('camBox'), video=$('v');
+const btnStart=$('btnStart'), btnShoot=$('btnShoot'), btnPick=$('btnPick'), filePick=$('filePick');
+let stream=null;
+
+/* ---------- 카메라 시작 로직 ---------- */
+async function startCam(){
+  try{
+    const constraints = {
+      audio:false,
+      video:{
+        facingMode:{ideal:'user'},
+        width:{ideal:1280}, height:{ideal:720}
+      }
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+    splash.style.display='none';
+    camBox.style.display='flex';
+  }catch(e){
+    // 권한/기기 이슈: 폴백 안내
+    camBox.style.display='flex';
+    console.warn('getUserMedia 실패, 파일 선택 폴백로 전환', e);
+    alert('카메라 접근이 차단되어 파일 선택으로 전환합니다. 주소창 오른쪽의 카메라 아이콘에서 권한을 허용해주세요.');
+  }
+}
+
+function stopCam(){
+  try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){}
+  stream=null;
+}
+
+/* ---------- 자동 시작(문제+tk가 있을 때만) ---------- */
+if(problem && tk){
+  // 일부 브라우저는 사용자 제스처가 없으면 차단 → 자동 시도 + 실패 시 버튼 노출
+  setTimeout(()=>startCam().catch(()=>{}), 1200);
+} else {
+  // 손님모드 안내는 숨김(요청). tk 또는 problem이 없으면 스플래시만.
+  // document.getElementById('guestNote').textContent = '손님모드'; // 숨김 유지
+}
+
+/* 버튼 핸들러 */
+btnStart.onclick = ()=> startCam();
+btnPick.onclick  = ()=> filePick.click();
+
+/* ---------- 촬영 & 업로드 ---------- */
+btnShoot.onclick = async ()=>{
+  try{
+    let blob=null;
+    if(stream){
+      const cv=document.createElement('canvas');
+      const vw=video.videoWidth, vh=video.videoHeight;
+      cv.width=vw; cv.height=vh;
+      cv.getContext('2d').drawImage(video,0,0,vw,vh);
+      const b64 = cv.toDataURL('image/jpeg', 0.92);
+      blob = await (await fetch(b64)).blob();
+    }else{
+      if(!filePick.files.length){ alert('파일을 선택해 주세요.'); return; }
+      blob = filePick.files[0];
+    }
+    await uploadBlob(blob);
+    // 성공
+    stopCam();
+    $('done').style.display='flex';
+    setTimeout(()=>{ $('done').style.display='none'; }, 1600);
+  }catch(e){
+    alert('업로드 실패: 네트워크 또는 권한 문제일 수 있습니다.');
+    console.error(e);
+  }
+};
+
+/* 파일 선택 업로드(폴백) */
+filePick.onchange = ()=>{ if(filePick.files.length) btnShoot.click(); };
+
+/* ---------- 업로드(FormData + no-cors 폴백) ---------- */
+async function uploadBlob(blob){
+  const fd = new FormData();
+  fd.append('action','uploadSuccess');
+  fd.append('key', tk);
+  fd.append('problem', problem);
+  fd.append('child',''); // B모드는 비워도 저장됨
+  fd.append('ts', Date.now());
+  fd.append('file', blob, 'capture.jpg');
+
+  // CORS 헤더가 없는 GAS에 안전하게 보내기 위해 no-cors 사용(응답은 못 읽음)
+  await fetch(EXEC, { method:'POST', body:fd, mode:'no-cors' });
+}
+</script>
+</body>
+</html>
+<script>
+(async () => {
+  if (!('permissions' in navigator) || !navigator.permissions.query) return;
+  try {
+    const st = await navigator.permissions.query({name: 'camera'});
+    if (st.state === 'denied') {
+      alert('이 사이트의 카메라 권한이 차단되어 있습니다.\n주소창의 자물쇠 → 사이트 설정에서 카메라를 허용해 주세요.');
+    }
+  } catch(_) {}
+})();
+</script>
+
+
