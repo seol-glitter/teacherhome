@@ -1,392 +1,388 @@
 <!doctype html>
 <html lang="ko">
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>교사용 대시보드</title>
+<meta name="robots" content="noindex,nofollow" />
 <style>
-:root{ --bg:#eaf6ff; --card:#fff; --ink:#0f172a; --sub:#334155; --pri:#0ea5e9; --priD:#0284c7; --warn:#ef4444; --line:#cbd5e1; }
-*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
-.wrap{max-width:1100px;margin:0 auto;padding:18px}
-h1{margin:0 0 10px}
-.badge{display:inline-block;padding:2px 10px;border-radius:999px;background:#e2fbe8;color:#065f46;font-weight:800;font-size:12px}
-.badge.off{background:#fee2e2;color:#991b1b}
-.card{background:var(--card);border:1px solid #d7e7f5;border-radius:16px;padding:16px;margin:10px 0}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row>*{flex:1}
-input,textarea,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:12px}
-textarea{min-height:140px}
-.btn{padding:10px 14px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:800;cursor:pointer}
-.btn:hover{background:var(--priD)}
-.btn.sec{background:#475569}
-.btn.warn{background:var(--warn)}
-.note{font-size:12px;color:var(--sub);margin-top:6px}
-.hide{display:none}
-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;overflow:auto}
-th,td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:14px;text-align:center;vertical-align:middle}
+:root{
+  --bg1:#dff0ff; --bg2:#eaf6ff; --ink:#0f172a; --muted:#475569;
+  --card:#ffffff; --line:#e2e8f0; --brand:#0ea5e9; --brandD:#0284c7;
+  --ok:#16a34a; --warn:#f97316; --danger:#ef4444;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{
+  margin:0; color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+  background:linear-gradient(180deg,var(--bg1),var(--bg2));
+}
+.wrap{max-width:1180px;margin:0 auto;padding:18px}
+.top{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px
+}
+h1{margin:0;font-size:clamp(22px,4.8vw,32px)}
+.badge{padding:6px 10px;border-radius:999px;background:#0f172a;color:#fff;font-weight:900;font-size:12px}
+.badge.alt{background:#10b981}
+.badge.gray{background:#94a3b8}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:14px 16px; box-shadow:0 6px 20px rgba(0,0,0,.06); margin-top:12px
+}
+.card h3{margin:0 0 10px; font-size:18px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.input{height:40px; border:1px solid #cbd5e1; border-radius:10px; padding:0 12px; font-weight:700}
+.btn{height:40px; padding:0 16px; border:0; border-radius:10px; background:var(--brand); color:#fff; font-weight:900; cursor:pointer}
+.btn:hover{background:var(--brandD)}
+.btn.ok{background:var(--ok)} .btn.warn{background:var(--warn)} .btn.danger{background:var(--danger)}
+.note{color:var(--muted); font-size:12px; margin-top:6px}
+
+/* 유아 성취도 표 */
+.tableWrap{overflow:auto}
+table{width:100%; border-collapse:collapse; margin-top:6px}
+th,td{border-top:1px solid var(--line); padding:8px; text-align:center; font-size:14px}
 th:first-child,td:first-child{text-align:left}
-tr:last-child td{border-bottom:0}
-thead th{background:#f1f5f9;position:sticky;top:0}
-.cellThumb{display:block;width:100%;height:72px;border-radius:8px;object-fit:cover;background:#eee}
-.cellBox{min-width:96px}
-
-/* 썸네일 그리드 */
-.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-top:6px}
-.thumb{background:#0f172a;border-radius:12px;overflow:hidden;color:#fff}
-.thumb img{display:block;width:100%;height:140px;object-fit:cover}
-.caption{padding:8px;font-size:12px}
-
-/* 미분류 카드 */
-.cardItem{border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;background:#fff}
-.cardItem img{display:block;width:100%;height:160px;object-fit:cover}
-.itemBody{padding:8px}
-
-/* 모달 */
-.overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:1000}
-.overlay.show{display:flex}
-.modal{width:min(960px,92vw);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;border:1px solid #cbd5e1;padding:16px}
-.modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.modalHead h3{margin:0}
-.modalClose{border:0;background:#0f172a;color:#fff;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer}
+thead th{background:#f8fafc; position:sticky; top:0; z-index:1}
+.kid{cursor:pointer}
+.kid:hover{background:#f1f5f9}
+.thumb{
+  width:72px; height:54px; object-fit:cover; border-radius:10px; background:#e2e8f0;
+  display:block; margin:0 auto
+}
+.empty{color:#94a3b8}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap; margin-top:8px}
+.pill{padding:6px 10px; border-radius:999px; background:#e2e8f0; cursor:pointer; font-weight:700}
+.pill.on{background:#0ea5e9; color:#fff}
 </style>
+
 <body>
 <div class="wrap">
-  <h1>교사용 대시보드 <span id="bindState" class="badge">확인 중…</span></h1>
 
-  <!-- 로그인 카드 -->
-  <div class="card" id="rebindCard">
-    <h3>로그인(기관/학급/비밀번호)</h3>
+  <div class="top">
+    <h1>교사용 대시보드</h1>
+    <span id="modePill" class="badge">모드 B</span>
+    <span id="bindPill" class="badge gray">손님</span>
+    <a href="./index.html" class="badge alt" style="text-decoration:none">← 교사용 홈</a>
+  </div>
+
+  <!-- A0: 유아 성취도 -->
+  <section class="card" id="cardPerf">
+    <h3>유아 성취도</h3>
+    <div class="toolbar">
+      <span class="pill on" id="btnAll">모두 보기</span>
+      <span class="pill" id="btnOnlyUnassigned">미분류만</span>
+      <span class="note" id="klassInfo"></span>
+    </div>
+    <div class="tableWrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th style="min-width:140px">유아명</th>
+            <th>02 위험찾기</th>
+            <th>03 화재대피 안전수칙</th>
+            <th>04 비상구로 대피</th>
+            <th>05 옷에 불이 붙었어요</th>
+            <th>06 119 신고하기</th>
+            <th>07 소화기 사용법</th>
+            <th>08 완강기 사용법</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="note" id="noItems" style="display:none">아직 업로드된 촬영이 없습니다.</div>
+  </section>
+
+  <!-- A1: 유아 명단 편집(선택) -->
+  <section class="card" id="cardRoster">
+    <h3>유아 명단(선택)</h3>
     <div class="row">
-      <input id="school" placeholder="기관명">
-      <input id="klass"  placeholder="학급명">
-      <input id="tcode"  type="password" placeholder="교사용 비밀번호">
+      <textarea id="taRoster" rows="4" style="flex:1 1 480px; min-width:260px; border:1px solid #cbd5e1; border-radius:10px; padding:10px"></textarea>
+      <button class="btn" id="btnRosterSave">저장</button>
     </div>
+    <div class="note">쉼표(,) 또는 줄바꿈으로 구분하여 입력합니다. (예: 김가람, 박서율, …)</div>
+  </section>
+
+  <!-- A2: 학부모 공용코드 -->
+  <section class="card" id="cardParent">
+    <h3>학부모 공용코드</h3>
     <div class="row">
-      <button class="btn" id="btnBind">로그인 & 연결</button>
-      <button class="btn sec" id="btnPing">진단(핑)</button>
+      <input id="inputParentCode" class="input" style="flex:1 1 260px" placeholder="예: FIRE12" />
+      <button id="btnParentSave" class="btn">저장</button>
     </div>
-    <div class="note" id="bindMsg"></div>
-  </div>
+    <div class="note">학부모에게 이 코드를 안내하면 자녀 성취를 열람할 수 있습니다. (영문/숫자/(-,_) 4~20자 권장)</div>
+  </section>
 
-  <!-- 메인 -->
-  <div id="main" class="hide">
-    <div class="note">모드: <b id="vMode"></b></div>
-
-    <div class="card">
-      <h3>유아 명단(선택)</h3>
-      <textarea id="roster" placeholder="한 줄에 한 명 (선택 사항)"></textarea>
-      <div class="row">
-        <button class="btn" id="btnSaveRoster">유아명 저장</button>
-        <button class="btn sec" id="btnLoadRoster">불러오기</button>
-        <button class="btn sec" id="btnRefresh">재동기화</button>
-      </div>
-      <div class="note" id="rosterMsg"></div>
+  <!-- A3: 교사용 비밀번호 변경 -->
+  <section class="card" id="cardPw">
+    <h3>교사용 비밀번호 변경</h3>
+    <div class="row">
+      <input id="oldCode" class="input" placeholder="현재 비밀번호" />
+      <input id="newCode" class="input" placeholder="새 비밀번호" />
+      <button id="btnChangePw" class="btn">변경</button>
     </div>
+  </section>
 
-    <div class="card">
-      <h3>유아 성취도(7문항 최신 썸네일)</h3>
-      <div class="note">이름을 누르면 해당 유아의 성취만 모아볼 수 있습니다.</div>
-      <div id="tableWrap"></div>
-      <div class="note" id="tableMsg"></div>
+  <!-- A4: 학급 기록 초기화(연도 교체) -->
+  <section class="card" id="cardPurge">
+    <h3>학급 기록 초기화(연도 교체)</h3>
+    <div class="row">
+      <button id="btnPurge" class="btn warn">기록 초기화(명단/촬영 삭제, 학급·비번 유지)</button>
     </div>
+    <div class="note">응답/촬영 기록과 명단만 삭제하고, 학급과 비밀번호는 유지합니다. (A모드 미사용 시에도 동작)</div>
+  </section>
 
-    <!-- 미분류(이름 없는 업로드) -->
-    <div class="card">
-      <h3>미분류 항목(이름 미선택)</h3>
-      <div class="note">아래 항목은 유아 이름이 비어 있어 분류되지 않았습니다. 이름을 선택해 저장하면 표에 반영되며, <b>이 기기에서 다음부터 자동분류</b> 됩니다.</div>
-      <div id="unassigned" class="grid"></div>
-      <div class="note" id="unMsg"></div>
+  <!-- A5: 이 기기 연결 해제(로컬) -->
+  <section class="card" id="cardUnlink">
+    <h3>이 기기 연결 해제</h3>
+    <div class="row">
+      <button id="btnUnlink" class="btn danger">기기 연결 해제</button>
     </div>
-
-    <div class="card">
-      <h3>썸네일(참고)</h3>
-      <div id="grid" class="grid"></div>
-      <div class="note" id="achMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>학부모 공용코드</h3>
-      <div class="row">
-        <input id="parentCode" placeholder="예: FIRE12">
-        <button class="btn" id="btnSetPC">저장</button>
-      </div>
-      <div class="note">학부모에게 이 코드를 안내하면 <b>자녀 성취 열람</b>이 가능합니다. (코드=공용코드+2자리, 예: FIRE12<strong>07</strong>)</div>
-      <div class="note" id="pcMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>교사용 비밀번호 변경</h3>
-      <div class="row">
-        <input id="oldPw" type="password" placeholder="현재 비밀번호">
-        <input id="newPw" type="password" placeholder="새 비밀번호">
-        <button class="btn" id="btnChgPw">변경</button>
-      </div>
-      <div class="note" id="pwMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>학급 기록 초기화(연도 교체)</h3>
-      <div class="row">
-        <button class="btn warn" id="btnPurge">기록 초기화(유아명단/성취 사진 삭제, 학급·비밀번호 유지)</button>
-      </div>
-      <div class="note">이 기능은 <b>유아 명단과 성취 사진</b>만 모두 삭제합니다. <b>학급 이름과 비밀번호는 그대로 유지</b>되어 새 학년도에 다시 사용할 수 있습니다.</div>
-      <div class="note" id="purgeMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>기기 초기화</h3>
-      <div class="row">
-        <button class="btn sec" id="btnUnbind">이 기기 연결 해제(로컬 초기화)</button>
-      </div>
-      <div class="note">이 기기의 연결정보만 삭제하고 손님모드로 전환합니다. 전임자 비밀번호 없이도 새로 가입 가능합니다.</div>
-    </div>
-  </div>
-</div>
-
-<!-- 얼굴 임베딩 라이브러리 -->
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
-<!-- 유아 모아보기(재지정 지원) -->
-<div class="overlay" id="ovl">
-  <div class="modal">
-    <div class="modalHead">
-      <h3 id="ovlTitle">유아 성취 모아보기</h3>
-      <button class="modalClose" id="ovlClose">닫기 ×</button>
-    </div>
-    <div id="ovlBody" class="grid"></div>
-  </div>
+    <div class="note">이 기기의 저장 정보만 삭제되어 <b>손님모드</b>로 전환됩니다. (서버의 학급은 유지)</div>
+  </section>
 </div>
 
 <script>
-/* ===== 설정 ===== */
-const EXEC_A="https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
-const EXEC_B="https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
-const PROBLEMS=['02_위험찾기','03_화재대피안전수칙','04_비상구로대피','05_옷에불이붙었어요','06_119신고하기','07_소화기사용법','08_완강기사용법'];
-const LABELS={'02_위험찾기':'02 위험찾기','03_화재대피안전수칙':'03 화재대피안전수칙','04_비상구로대피':'04 비상구로대피','05_옷에불이붙었어요':'05 옷에불이붙었어요','06_119신고하기':'06 119신고하기','07_소화기사용법':'07 소화기사용법','08_완강기사용법':'08 완강기사용법'};
-const qs=new URLSearchParams(location.search);
-const mode=(qs.get('mode')||localStorage.getItem('mode')||'b').toLowerCase()==='a'?'a':'b';
-localStorage.setItem('mode',mode);
-const EXEC=(mode==='a')?EXEC_A:EXEC_B;
-const $=id=>document.getElementById(id);
+/* ====== 설정: Apps Script URL ====== */
+const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
+const EXEC_B = "https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
 
-/* ===== JSONP ===== */
+/* ====== 모드/키/실행 URL ====== */
+const qs = new URLSearchParams(location.search);
+const mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
+localStorage.setItem('mode', mode);
+const EXEC = (mode==='a')? EXEC_A : EXEC_B;
+
+let tk = (localStorage.getItem('tk') || localStorage.getItem('teacherKey') || '').trim();
+let schoolId='', classId='', roster=[];
+
+const PROBLEMS = [
+  '02_위험찾기',
+  '03_화재대피안전수칙',
+  '04_비상구로대피',
+  '05_옷에불이붙었어요',
+  '06_119신고하기',
+  '07_소화기사용법',
+  '08_완강기사용법'
+];
+
+/* ====== 유틸(JSONP) ====== */
 function jsonp(url, timeout=15000){
-  return new Promise((res,rej)=>{
-    const cb='cb_'+Math.random().toString(36).slice(2); let done=false;
-    const t=setTimeout(()=>{ if(done)return; done=true; cleanup(); rej(new Error('timeout')); }, timeout);
-    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(t); }
-    window[cb]=d=>{ if(done)return; done=true; cleanup(); res(d); };
+  return new Promise((resolve,reject)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2);
+    let done=false;
+    const timer=setTimeout(()=>{ if(done) return; done=true; cleanup(); reject(new Error('timeout')); }, timeout);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(timer); }
+    window[cb]=d=>{ if(done) return; done=true; cleanup(); resolve(d); };
     const s=document.createElement('script');
-    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb; s.onerror=()=>{ if(done)return; done=true; cleanup(); rej(new Error('network')); };
+    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+    s.onerror=()=>{ if(done) return; done=true; cleanup(); reject(new Error('network')); };
     document.body.appendChild(s);
   });
 }
 
-/* ===== 상태 ===== */
-function setBind(on){ const b=$('bindState'); if(on){b.textContent='연결됨';b.classList.remove('off')} else{b.textContent='손님모드';b.classList.add('off')} }
-function refreshUI(){
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim();
-  const on=!!tk; setBind(on);
-  $('rebindCard').classList.toggle('hide', on);
-  $('main').classList.toggle('hide', !on);
-  $('vMode').textContent=(mode==='a'?'A모드':'B모드');
-  return on;
-}
-$('btnPing').onclick=async()=>{ try{ const j=await jsonp(EXEC+'?action=ping'); $('bindMsg').textContent=(j&&j.ok)?'핑 OK':'응답 비정상'; }catch(e){ $('bindMsg').textContent='핑 실패'; } };
-$('btnBind').onclick=async()=>{
-  const s=$('school').value.trim(), k=$('klass').value.trim(), c=$('tcode').value.trim();
-  if(!s||!k||!c){ $('bindMsg').textContent='기관/학급/비밀번호를 모두 입력하세요'; return; }
-  $('bindMsg').textContent='연결 중…';
-  try{
-    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'key',schoolId:s,classId:k,code:c}));
-    if(j&&j.ok&&j.teacherKey){
-      localStorage.setItem('tk', j.teacherKey); localStorage.setItem('teacherKey', j.teacherKey);
-      localStorage.setItem('schoolId', s); localStorage.setItem('classId', k);
-      $('bindMsg').textContent='연결 성공'; if(refreshUI()){ loadAll(); }
-    }else{ $('bindMsg').textContent=(j&&j.error)==='auth'?'비밀번호 불일치':'실패'; }
-  }catch(e){ $('bindMsg').textContent='네트워크 오류/타임아웃'; }
-};
-$('btnUnbind').onclick=()=>{ if(!confirm('이 기기의 연결정보를 삭제하고 손님모드로 전환합니다. 진행할까요?')) return; ['tk','teacherKey','schoolId','classId','faceDB'].forEach(k=>localStorage.removeItem(k)); alert('초기화되었습니다.'); refreshUI(); };
-
-/* ===== 데이터 ===== */
-$('btnLoadRoster').onclick=loadRoster; $('btnSaveRoster').onclick=saveRoster; $('btnRefresh').onclick=loadAll;
-let rosterCache=[], itemsCache=[];
-async function loadAll(){ await loadRoster(); await loadAchievements(); await loadUnassigned(); renderTable(); }
-
-async function loadRoster(){
-  $('rosterMsg').textContent='불러오는 중…';
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('rosterMsg').textContent='손님모드'; return; }
-  try{
-    const j=await jsonp(EXEC+'?action=resolveKey&key='+encodeURIComponent(tk));
-    rosterCache=(j&&Array.isArray(j.roster))?j.roster:[]; $('roster').value=rosterCache.join('\n'); $('rosterMsg').textContent='완료';
-  }catch(e){ $('rosterMsg').textContent='네트워크 오류/타임아웃'; }
-}
-async function saveRoster(){
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('rosterMsg').textContent='손님모드'; return; }
-  const roster=$('roster').value.trim(); $('rosterMsg').textContent='저장 중…';
-  try{
-    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'saveRoster',key:tk,roster}));
-    if(j&&j.ok){ rosterCache=j.roster||[]; $('rosterMsg').textContent='저장 완료'; renderTable(); }
-    else{ $('rosterMsg').textContent='실패: '+((j&&j.error)||''); }
-  }catch(e){ $('rosterMsg').textContent='네트워크 오류/타임아웃'; }
-}
-async function loadAchievements(){
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('achMsg').textContent='손님모드'; return; }
-  $('achMsg').textContent='불러오는 중…'; $('grid').innerHTML='';
-  try{
-    const j=await jsonp(EXEC+'?action=listByChild&key='+encodeURIComponent(tk));
-    itemsCache=(j&&j.ok)?(j.items||[]):[];
-    // 참고용 썸네일
-    const grid=$('grid'); grid.innerHTML='';
-    for(const it of itemsCache){
-      const card=document.createElement('div'); card.className='thumb';
-      const img=document.createElement('img'); img.alt=it.problem;
-      const cap=document.createElement('div'); cap.className='caption'; cap.textContent=`${it.child||'(미지정)'} · ${LABELS[it.problem]||it.problem}`;
-      loadThumb(it.fileId).then(src=>{ if(src) img.src=src; else img.alt='(이미지 없음)'; });
-      card.appendChild(img); card.appendChild(cap); grid.appendChild(card);
-    }
-    $('achMsg').textContent = itemsCache.length? '': '표시할 항목이 없습니다.';
-  }catch(e){ $('achMsg').textContent='네트워크 오류/타임아웃'; }
-}
-
-/* 미분류: child가 빈 기록 + 로컬학습 반영 */
-async function loadUnassigned(){
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('unMsg').textContent='손님모드'; return; }
-  $('unMsg').textContent='불러오는 중…'; const box=$('unassigned'); box.innerHTML='';
-  try{
-    const j=await jsonp(EXEC+'?action=listUnassigned&key='+encodeURIComponent(tk));
-    const arr=(j&&j.ok)?(j.items||[]):[];
-    if(!arr.length){ $('unMsg').textContent='미분류 항목이 없습니다.'; return; }
-    arr.sort((a,b)=>b.ts-a.ts);
-    for(const it of arr){
-      const div=document.createElement('div'); div.className='cardItem';
-      const img=document.createElement('img'); loadThumb(it.fileId).then(src=>img.src=src||''); div.appendChild(img);
-      const body=document.createElement('div'); body.className='itemBody';
-      const sel=document.createElement('select');
-      sel.innerHTML = '<option value="">(유아 선택)</option>'+ (rosterCache||[]).map(n=>`<option>${n}</option>`).join('');
-      const save=document.createElement('button'); save.className='btn'; save.textContent='저장';
-      save.onclick=async()=>{
-        const nm=sel.value.trim(); if(!nm){ alert('유아를 선택하세요'); return; }
-        // 1) 서버 재지정
-        await reassign(it.fileId,nm);
-        // 2) 로컬 자동분류 학습: 썸네일로 임베딩 추출 → centroid 업데이트
-        try{
-          const desc = await imgDescriptor(img);
-          if(desc) updateCentroidLocal(nm, desc);
-        }catch(_){}
-        div.remove(); renderTable();
-      };
-      body.appendChild(sel); body.appendChild(save); div.appendChild(body); box.appendChild(div);
-    }
-    $('unMsg').textContent='';
-  }catch(e){ $('unMsg').textContent='네트워크 오류/타임아웃'; }
-}
-
-/* 썸네일 캐시 */
-const thumbCache=new Map();
-async function loadThumb(fid){
-  if(!fid) return null; if(thumbCache.has(fid)) return thumbCache.get(fid);
-  const p=(async()=>{ try{ const t=await jsonp(EXEC+'?action=thumbB64&fileId='+encodeURIComponent(fid)); if(t&&t.ok&&t.b64){ return `data:${t.mime||'image/jpeg'};base64,${t.b64}`; } return null; }catch(_){ return null; } })();
-  thumbCache.set(fid,p); return p;
-}
-
-/* 표 (7문항) */
-function renderTable(){
-  const wrap=$('tableWrap'); wrap.innerHTML='';
-  let names = rosterCache && rosterCache.length ? rosterCache.slice() : Array.from(new Set(itemsCache.map(x=>x.child).filter(Boolean)));
-  if(!names.length){ $('tableMsg').textContent='명단이 없고 분류된 성취도도 없습니다.'; return; }
-  const keyOf=(c,p)=>`${c}__${p}`, map=new Map();
-  for(const it of itemsCache){ if(it.child) map.set(keyOf(it.child,it.problem),it); }
-  const table=document.createElement('table');
-  const thead=document.createElement('thead'); const thr=document.createElement('tr');
-  const th0=document.createElement('th'); th0.textContent='유아명'; thr.appendChild(th0);
-  PROBLEMS.forEach(p=>{ const th=document.createElement('th'); th.textContent=LABELS[p]||p; thr.appendChild(th); });
-  thead.appendChild(thr); table.appendChild(thead);
-  const tbody=document.createElement('tbody');
-  names.forEach(nm=>{
-    const tr=document.createElement('tr'); const td0=document.createElement('td');
-    td0.textContent=nm; td0.style.cursor='pointer'; td0.onclick=()=>openChildModal(nm); tr.appendChild(td0);
-    PROBLEMS.forEach(p=>{
-      const td=document.createElement('td'); td.className='cellBox'; const it=map.get(keyOf(nm,p));
-      if(it){ const img=document.createElement('img'); img.className='cellThumb'; img.alt=`${nm}-${p}`;
-        loadThumb(it.fileId).then(src=>img.src=src||''); td.appendChild(img);
-      }else{ td.textContent='—'; }
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody); wrap.appendChild(table); $('tableMsg').textContent='표의 썸네일은 최신 결과입니다.';
-}
-
-/* 유아 모아보기(+ 재지정 유지) */
-function openChildModal(name){
-  $('ovlTitle').textContent=`${name} · 성취 모아보기`;
-  const body=$('ovlBody'); body.innerHTML='';
-  const items=PROBLEMS.map(p=>itemsCache.find(x=>x.child===name&&x.problem===p)).filter(Boolean);
-  if(!items.length){ body.textContent='표시할 항목이 없습니다.'; }
-  else{
-    items.forEach(async it=>{
-      const div=document.createElement('div'); div.className='cardItem';
-      const img=document.createElement('img'); img.alt=it.problem; img.src=(await loadThumb(it.fileId))||''; div.appendChild(img);
-      const bb=document.createElement('div'); bb.className='itemBody';
-      const sel=document.createElement('select'); sel.innerHTML='<option>'+name+'</option>'+ (rosterCache||[]).filter(n=>n!==name).map(n=>`<option>${n}</option>`).join('');
-      const btn=document.createElement('button'); btn.className='btn'; btn.textContent='재지정';
-      btn.onclick=async()=>{ const nm=sel.value.trim(); if(!nm){ alert('유아 선택'); return; } await reassign(it.fileId,nm);
-        try{ const desc=await imgDescriptor(img); if(desc) updateCentroidLocal(nm, desc); }catch(_){}
-        await loadAchievements(); renderTable(); openChildModal(nm); };
-      bb.appendChild(sel); bb.appendChild(btn); div.appendChild(bb); body.appendChild(div);
-    });
+/* ====== 상태/헤더 ====== */
+function setHeader(){
+  document.getElementById('modePill').textContent = '모드 ' + (mode==='a'?'A':'B');
+  const bind = document.getElementById('bindPill');
+  if(tk){
+    bind.textContent='연결됨';
+    bind.classList.remove('gray'); bind.classList.add('alt');
+  }else{
+    bind.textContent='손님';
+    bind.classList.remove('alt'); bind.classList.add('gray');
   }
-  $('ovl').classList.add('show');
-}
-$('ovlClose').onclick=()=>$('ovl').classList.remove('show');
-
-/* 재지정 API */
-async function reassign(fileId, child){
-  const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk) return;
-  try{ await jsonp(EXEC+'?'+new URLSearchParams({action:'assignChild',key:tk,fileId:fileId,child:child})); }catch(_){}
 }
 
-/* ===== 로컬 자동분류 학습: face-api.js ===== */
-const FACEAPI_MODELS = 'https://justadudewhohacks.github.io/face-api.js/models';
-let modelsReady=false;
-(async()=>{ try{
-  await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS),
-    faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS),
-    faceapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELS),
-  ]); modelsReady=true;
-}catch(e){ console.warn('face-api models load fail', e); }})();
+/* ====== 초기 로드 ====== */
+(async function init(){
+  setHeader();
+  if(!tk){
+    alert('학급 연결 정보(tk)가 없습니다. (홈에서 먼저 로그인)');
+    return;
+  }
+  // 키 해석(기관/반/명단)
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key:tk}));
+    schoolId = r.schoolId||''; classId = r.classId||''; roster = Array.isArray(r.roster)? r.roster : [];
+    document.getElementById('klassInfo').textContent = `기관: ${schoolId || '-'} / 반: ${classId || '-'}`;
+    document.getElementById('taRoster').value = (roster||[]).join('\n');
+  }catch(_){}
+  // 성취도 로드
+  await loadPerformance();
+})();
 
-function dbKey(){ const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); return 'faceDB::'+(tk||''); }
-function loadDB(){ try{ return JSON.parse(localStorage.getItem(dbKey())||'{}'); }catch(_){ return {}; } }
-function saveDB(db){ localStorage.setItem(dbKey(), JSON.stringify(db)); }
-function ema(oldV, newV, alpha=0.85){ const n=Math.min(oldV.length,newV.length), out=new Array(n); for(let i=0;i<n;i++) out[i]=alpha*oldV[i]+(1-alpha)*newV[i]; return out; }
-function updateCentroidLocal(child, desc){ if(!child||!desc) return; const db=loadDB(); const cur=db[child]; if(cur && Array.isArray(cur.vec)){ db[child]={vec:ema(cur.vec,desc,0.85), n:(cur.n||1)+1}; } else { db[child]={vec:Array.from(desc), n:1}; } saveDB(db); }
+/* ====== 성취도 표 구성 ====== */
+let itemsByChild = {}; // { child: {problem: {fileId,ts,mime}}}
+let filterChild = '';  // 클릭 필터
+let showOnlyUnassigned = false;
 
-async function imgDescriptor(imgEl){
-  if(!modelsReady) return null;
-  const opts=new faceapi.TinyFaceDetectorOptions({inputSize:256, scoreThreshold:0.5});
-  const res=await faceapi.detectSingleFace(imgEl, opts).withFaceLandmarks().withFaceDescriptor();
-  return res && res.descriptor ? Array.from(res.descriptor) : null;
+async function loadPerformance(){
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  itemsByChild = {};
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'listByChild', key:tk}));
+    const arr = (r && Array.isArray(r.items))? r.items : [];
+    // 최신 매핑
+    arr.forEach(it=>{
+      const ch = (it.child||'').trim(); const pr = (it.problem||'').trim();
+      if(!itemsByChild[ch]) itemsByChild[ch] = {};
+      itemsByChild[ch][pr] = { fileId: it.fileId, ts: +it.ts, mime: it.mime };
+    });
+  }catch(_){}
+
+  // 표시할 유아 순서: 명단 -> (미분류) -> 기타
+  const names = [...(roster||[])];
+  const UNASSIGN_KEY = ''; // child 빈 문자열 = 미분류
+  if(itemsByChild[UNASSIGN_KEY] && !names.includes('미분류')) names.push('미분류');
+
+  const rows = [];
+  names.forEach(n=>{
+    const key = (n==='미분류') ? '' : n;
+    rows.push(renderRow(n, itemsByChild[key]||{}));
+  });
+  // 명단에 없지만 업로드가 있는 유아(예: 새 이름)
+  Object.keys(itemsByChild).forEach(ch=>{
+    if(ch && !names.includes(ch)) rows.push(renderRow(ch, itemsByChild[ch]));
+  });
+
+  rows.forEach(tr=>tbody.appendChild(tr));
+  document.getElementById('noItems').style.display = rows.length? 'none' : 'block';
 }
 
-/* 기타 액션 */
-$('btnSetPC').onclick=async()=>{ const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('pcMsg').textContent='손님모드'; return; }
-  const pc=$('parentCode').value.trim(); if(!pc){ $('pcMsg').textContent='공용코드를 입력하세요'; return; }
-  try{ const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'setParentCode',key:tk,parentCode:pc})); $('pcMsg').textContent=(j&&j.ok)?'저장 완료':'실패'; }catch(e){ $('pcMsg').textContent='네트워크 오류'; }
-};
-$('btnChgPw').onclick=async()=>{ const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('pwMsg').textContent='손님모드'; return; }
-  const oldPw=$('oldPw').value.trim(), newPw=$('newPw').value.trim(); if(!oldPw||!newPw){ $('pwMsg').textContent='현재/새 비밀번호 입력'; return; }
-  try{ const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'changeTeacherCode',key:tk,old:oldPw,new:newPw})); $('pwMsg').textContent=(j&&j.ok)?'변경 완료':'실패'; }catch(e){ $('pwMsg').textContent='네트워크 오류'; }
-};
-$('btnPurge').onclick=async()=>{ const tk=(localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim(); if(!tk){ $('purgeMsg').textContent='손님모드'; return; }
-  if(!confirm('이 학급의 유아 명단과 성취 사진을 모두 삭제합니다. 학급 이름과 비밀번호는 유지됩니다. 진행할까요?')) return;
-  $('purgeMsg').textContent='초기화 중…';
-  try{ const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'purgeData',key:tk})); $('purgeMsg').textContent=(j&&j.ok)?'초기화 완료':'실패'; if(j&&j.ok){ rosterCache=[]; itemsCache=[]; loadAll(); } }catch(e){ $('purgeMsg').textContent='네트워크 오류'; }
+function renderRow(kidName, mapByProblem){
+  const tr = document.createElement('tr');
+  // 필터/미분류 표시
+  const nameCell = document.createElement('td');
+  nameCell.textContent = kidName || '미분류';
+  nameCell.className = 'kid';
+  nameCell.onclick = ()=>{
+    filterChild = (filterChild===(kidName||'')) ? '' : (kidName||'');
+    applyFilterPills();
+  };
+  tr.appendChild(nameCell);
+
+  PROBLEMS.forEach(pr=>{
+    const td=document.createElement('td');
+    const rec = mapByProblem[pr];
+    if(!rec){
+      td.innerHTML = '<span class="empty">—</span>';
+    }else{
+      const img = document.createElement('img');
+      img.className='thumb'; img.alt=pr; img.dataset.fid = rec.fileId;
+      td.appendChild(img);
+      // 썸네일 로드
+      loadThumb(rec.fileId, img);
+    }
+    tr.appendChild(td);
+  });
+
+  tr.dataset.kid = (kidName||'');
+  tr.dataset.hasAny = Object.keys(mapByProblem||{}).length ? '1' : '0';
+  return tr;
+}
+
+async function loadThumb(fid, imgEl){
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'thumbB64', fileId: fid}));
+    if(r && r.ok && r.b64){
+      imgEl.src = 'data:'+(r.mime||'image/jpeg')+';base64,'+r.b64;
+    }else{
+      imgEl.replaceWith(document.createTextNode('미리보기 실패'));
+    }
+  }catch(_){
+    imgEl.replaceWith(document.createTextNode('미리보기 실패'));
+  }
+}
+
+// 필터 토글
+document.getElementById('btnAll').onclick = ()=>{ filterChild=''; showOnlyUnassigned=false; applyFilterPills(); };
+document.getElementById('btnOnlyUnassigned').onclick = ()=>{ filterChild=''; showOnlyUnassigned=true; applyFilterPills(); };
+
+function applyFilterPills(){
+  const pAll = document.getElementById('btnAll');
+  const pUn = document.getElementById('btnOnlyUnassigned');
+  pAll.classList.toggle('on', !filterChild && !showOnlyUnassigned);
+  pUn.classList.toggle('on', !filterChild && showOnlyUnassigned);
+
+  const rows = Array.from(document.querySelectorAll('#tbody tr'));
+  rows.forEach(tr=>{
+    const kid = tr.dataset.kid || '';
+    const hasAny = tr.dataset.hasAny==='1';
+    let show = true;
+    if(filterChild) show = (kid===filterChild);
+    if(showOnlyUnassigned) show = (kid==='');
+    tr.style.display = show ? '' : 'none';
+  });
+}
+
+/* ====== 유아 명단 저장 ====== */
+document.getElementById('btnRosterSave').onclick = async ()=>{
+  if(!tk){ alert('먼저 로그인하세요.'); return; }
+  const raw = document.getElementById('taRoster').value || '';
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'saveRoster', key:tk, roster: raw}));
+    if(r && r.ok){
+      roster = r.roster || [];
+      alert('유아 명단 저장 완료');
+      await loadPerformance();
+    }else{
+      alert('저장 실패');
+    }
+  }catch(_){ alert('네트워크 오류'); }
 };
 
-/* 시작 */
-if(refreshUI()){ loadAll(); }
+/* ====== 학부모 공용코드 저장 ====== */
+document.getElementById('btnParentSave').onclick = async ()=>{
+  if(!tk){ alert('먼저 로그인하세요.'); return; }
+  const pc = (document.getElementById('inputParentCode').value || '').trim();
+  if(!pc){ alert('학부모 공용코드를 입력하세요.'); return; }
+  if(!/^[A-Za-z0-9-_]{4,20}$/.test(pc)){
+    if(!confirm('권장 형식: 영문/숫자/(-,_) 4~20자 입니다. 그래도 저장할까요?')) return;
+  }
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'setParentCode', key:tk, parentCode: pc}));
+    if(r && r.ok) alert('저장되었습니다.');
+    else alert('저장 실패: '+(r && r.error ? r.error : '서버'));
+  }catch(_){ alert('네트워크 오류'); }
+};
+
+/* ====== 비밀번호 변경 ====== */
+document.getElementById('btnChangePw').onclick = async ()=>{
+  if(!tk){ alert('먼저 로그인하세요.'); return; }
+  const oldC = (document.getElementById('oldCode').value || '').trim();
+  const newC = (document.getElementById('newCode').value || '').trim();
+  if(!oldC || !newC){ alert('현재/새 비밀번호를 입력하세요.'); return; }
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'changeTeacherCode', key:tk, old:oldC, new:newC}));
+    if(r && r.ok){ alert('변경되었습니다. 다음 접속부터 새 비밀번호를 사용하세요.'); }
+    else alert('변경 실패: '+(r && r.error ? r.error : '서버'));
+  }catch(_){ alert('네트워크 오류'); }
+};
+
+/* ====== 학급 기록 초기화(연도 교체) ====== */
+document.getElementById('btnPurge').onclick = async ()=>{
+  if(!tk){ alert('먼저 로그인하세요.'); return; }
+  if(!confirm('이 학급의 촬영 기록과 유아 명단을 삭제합니다. (학급/비번은 유지)\n진행할까요?')) return;
+  try{
+    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'purgeData', key:tk}));
+    if(r && r.ok){ alert('기록이 삭제되었습니다.'); await loadPerformance(); }
+    else alert('실패: '+(r && r.error ? r.error : '서버'));
+  }catch(_){ alert('네트워크 오류'); }
+};
+
+/* ====== 기기 연결 해제(로컬만) ====== */
+document.getElementById('btnUnlink').onclick = ()=>{
+  if(!confirm('이 기기의 연결 정보를 삭제하고 손님모드로 전환합니다. 진행할까요?')) return;
+  try{
+    localStorage.removeItem('tk'); localStorage.removeItem('teacherKey');
+    // 얼굴DB(B모드 로컬 자동분류)도 같이 정리
+    Object.keys(localStorage).forEach(k=>{ if(k.startsWith('faceDB::')) localStorage.removeItem(k); });
+  }catch(_){}
+  tk='';
+  setHeader();
+  alert('이 기기에서 연결이 해제되었습니다.');
+};
 </script>
 </body>
 </html>
