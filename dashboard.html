@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>교사용 대시보드 (번호 칼럼 추가 버전)</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;margin:0;background:#f7f7f9;color:#111}
+    header{padding:16px 20px;background:#111;color:#fff}
+    main{padding:16px 20px;max-width:1200px;margin:0 auto}
+    section{background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin:12px 0;padding:16px}
+    h2{margin:0 0 10px 0;font-size:18px}
+    label{display:inline-block;margin:4px 8px 4px 0;font-size:14px}
+    input[type=text], textarea{border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;font-size:14px}
+    textarea{width:100%;min-height:100px;resize:vertical}
+    button{border:0;background:#111;color:#fff;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+    button.secondary{background:#374151}
+    table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+    th,td{border-bottom:1px solid #e5e7eb;padding:8px 10px;text-align:left}
+    th{background:#fafafa}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;background:#fafafa}
+    .muted{color:#6b7280}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .danger{background:#b91c1c}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace}
+    .right{float:right}
+    .nowrap{white-space:nowrap}
+    .kid{cursor:pointer}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div><strong>불의 마법을 푸는 안전 열쇠 · 교사용 대시보드</strong> <span class="muted mono" id="ver"></span></div>
+      <div class="muted">번호 칼럼만 추가(로직 변경 없음)</div>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>학급 연결</h2>
+      <div class="row">
+        <label>기관명 <input type="text" id="school" placeholder="예: 대구세천유치원"></label>
+        <label>학급명 <input type="text" id="klass" placeholder="예: 햇살반"></label>
+        <label>교사용 비밀번호 <input type="text" id="tcode" class="mono" placeholder="숫자/문자"></label>
+        <button id="btnBind">연결/로그인</button>
+        <span class="pill">TK: <span id="tk" class="mono">—</span></span>
+      </div>
+      <div class="muted" style="margin-top:6px">* 기존 바인딩 방식(기관명/학급명/교사용 비밀번호 → TK) 그대로 유지합니다.</div>
+    </section>
+
+    <section>
+      <h2>명단</h2>
+      <div class="grid2">
+        <div>
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <div class="muted">한 줄에 한 명씩 입력</div>
+            <div class="muted">예) 김가람↵ 박서율↵ …</div>
+          </div>
+          <textarea id="rosterBox" placeholder="이름을 한 줄에 한 명씩 입력하세요"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button id="btnSaveRoster">명단 저장</button>
+            <span class="muted">저장 후 아래 표에 <strong>번호</strong>가 자동 부여됩니다(입력 순서 기반).</span>
+          </div>
+        </div>
+        <div>
+          <label>학부모 공용코드 <input type="text" id="parentCode" class="mono" placeholder="예: FS2025"></label>
+          <button id="btnSetParent" class="secondary">학부모 공용코드 저장</button>
+          <div class="muted" style="margin-top:8px">* 학부모는 공용코드 뒤에 자녀번호(2자리)를 붙여 입력합니다. 예: FS2025 + 07 → <strong>FS202507</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>성취 현황</h2>
+      <div class="row">
+        <button id="btnReload" class="secondary">새로고침</button>
+        <span class="muted">이름을 클릭하면 해당 유아만 필터링됩니다.</span>
+      </div>
+      <div style="overflow:auto">
+        <table id="tbl">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>데이터 관리</h2>
+      <div class="row">
+        <button id="btnPurge" class="danger">이 학급 데이터 비우기(사진/로그/센트로이드)</button>
+      </div>
+      <div class="muted" style="margin-top:6px">* 학급(TK)은 유지되고, 업로드된 사진·로그·센트로이드만 삭제됩니다.</div>
+    </section>
+  </main>
+
+<script>
+/* ====== 설정 ====== */
+const EXEC = new URLSearchParams(location.search).get('exec') || ''; // 비워두면 동일 도메인에서 프록시/리디렉션 사용 가능
+const DEFAULT_EXEC_HINT = '(배포 URL은 index·capture와 동일해야 합니다)';
+
+/* ====== 유틸 ====== */
+function $(id){return document.getElementById(id)}
+function qs(obj){return new URLSearchParams(obj).toString()}
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2);
+    const s=document.createElement('script');
+    const sep = url.includes('?')?'&':'?';
+    s.src = url+sep+'callback='+cb;
+    window[cb]=(data)=>{ resolve(data); setTimeout(()=>{ delete window[cb]; s.remove() },0); };
+    s.onerror=(e)=>{ reject(e); s.remove(); delete window[cb]; };
+    document.body.appendChild(s);
+  });
+}
+function toast(msg){ alert(msg); }
+
+/* ====== 상태 ====== */
+let TK='';
+let roster=[];
+let numMap=new Map(); // 이름 -> 번호
+
+/* ====== 렌더 ====== */
+function buildHeader(problemKeys){
+  const thead=$('thead');
+  thead.innerHTML='';
+  const tr=document.createElement('tr');
+  const thNo=document.createElement('th'); thNo.textContent='번호'; tr.appendChild(thNo);
+  const thName=document.createElement('th'); thName.textContent='유아명'; tr.appendChild(thName);
+  problemKeys.forEach(k=>{
+    const th=document.createElement('th');
+    th.textContent=k; // 문제ID 그대로 사용(기존 로직 유지)
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+}
+
+function render(rowsByKid, problemKeys){
+  // 번호 맵 갱신(입력 순서 기반)
+  numMap = new Map((roster||[]).map((name,i)=>[name, i+1]));
+  buildHeader(problemKeys);
+
+  const tb=$('tbody'); tb.innerHTML='';
+  const kids = Array.from(new Set(roster.concat(Object.keys(rowsByKid))));
+  kids.forEach(kidName=>{
+    const tr=document.createElement('tr');
+
+    // 번호 셀 (두 자리)
+    const tdNo=document.createElement('td');
+    const num = (kidName && numMap.has(kidName)) ? String(numMap.get(kidName)).padStart(2,'0') : '—';
+    tdNo.textContent = num;
+    tr.appendChild(tdNo);
+
+    // 이름 셀
+    const tdName=document.createElement('td');
+    tdName.textContent = kidName || '미분류';
+    tdName.className='kid';
+    tdName.onclick=()=> filterKid(kidName);
+    tr.appendChild(tdName);
+
+    // 문제 셀
+    problemKeys.forEach(p=>{
+      const td=document.createElement('td');
+      const row = (rowsByKid[kidName]||{})[p];
+      if(row){
+        const ts = new Date(row.ts).toLocaleString();
+        td.innerHTML = `<div class="muted">${ts}</div><div class="mono nowrap">${row.fileId||''}</div>`;
+      }else{
+        td.innerHTML = '<span class="muted">—</span>';
+      }
+      tr.appendChild(td);
+    });
+
+    tb.appendChild(tr);
+  });
+}
+
+function filterKid(kid){
+  const rows=[...document.querySelectorAll('#tbody tr')];
+  rows.forEach(r=>{
+    const nameCell = r.children[1];
+    r.style.display = (nameCell && nameCell.textContent.trim()===kid) ? '' : 'none';
+  });
+}
+
+/* ====== API 호출 ====== */
+async function api(action, params){
+  if(!EXEC){ toast('EXEC URL이 설정되지 않았습니다.\n'+DEFAULT_EXEC_HINT); throw new Error('no-exec'); }
+  const url = EXEC + '?' + qs(Object.assign({action}, params||{}));
+  return await jsonp(url);
+}
+
+/* ====== 로직 ====== */
+async function bind(){
+  const school=$('school').value.trim();
+  const klass=$('klass').value.trim();
+  const code=$('tcode').value.trim();
+  if(!school||!klass||!code){ toast('기관명/학급명/교사용 비밀번호를 입력하세요.'); return; }
+  const r = await api('key',{schoolId:school,classId:klass,code:code});
+  if(!r || !r.ok){ toast('연결 실패: '+(r && r.error || 'server')); return; }
+  TK = r.teacherKey;
+  $('tk').textContent = TK;
+  await loadMeta();
+  await reload();
+}
+
+async function loadMeta(){
+  if(!TK) return;
+  const r = await api('resolveKey',{key:TK});
+  roster = (r && Array.isArray(r.roster)) ? r.roster : [];
+  $('rosterBox').value = roster.join('\n');
+  if(r && r.parentCode) $('parentCode').value = r.parentCode;
+}
+
+async function saveRoster(){
+  if(!TK){ toast('먼저 학급 연결을 해주세요.'); return; }
+  const text=$('rosterBox').value || '';
+  const r = await api('saveRoster',{key:TK, roster:text});
+  if(!r || !r.ok){ toast('명단 저장 실패'); return; }
+  roster = r.roster || [];
+  await reload(); // 번호 다시 반영
+  toast('저장되었습니다.');
+}
+
+async function setParent(){
+  if(!TK){ toast('먼저 학급 연결을 해주세요.'); return; }
+  const pc=$('parentCode').value.trim();
+  if(!pc){ toast('공용코드를 입력하세요.'); return; }
+  const r= await api('setParentCode',{key:TK,parentCode:pc});
+  if(!r || !r.ok){ toast('저장 실패'); return; }
+  toast('학부모 공용코드가 저장되었습니다.');
+}
+
+async function reload(){
+  if(!TK){ return; }
+  // listRecent로 문제ID 추출 + 최근 항목 렌더
+  const r = await api('listRecent',{key:TK,limit:200});
+  const items = (r && r.items) || [];
+  const latestByKid = {};
+  const problems = new Set();
+  items.forEach(it=>{
+    problems.add(it.problem);
+    latestByKid[it.child] = latestByKid[it.child] || {};
+    const prev = latestByKid[it.child][it.problem];
+    if(!prev || (it.ts && it.ts > prev.ts)){
+      latestByKid[it.child][it.problem] = {ts:it.ts, fileId:it.fileId, mime:it.mime};
+    }
+  });
+  render(latestByKid, Array.from(problems));
+}
+
+async function purge(){
+  if(!TK){ toast('먼저 학급 연결을 해주세요.'); return; }
+  if(!confirm('이 학급의 사진/로그/센트로이드를 모두 삭제합니다.\n학급(TK) 자체는 유지됩니다.\n계속할까요?')) return;
+  const r = await api('purgeData',{key:TK});
+  if(!r || !r.ok){ toast('삭제 실패'); return; }
+  await reload();
+  toast('삭제 완료');
+}
+
+/* ====== 이벤트 바인딩 ====== */
+window.addEventListener('load',()=>{
+  $('ver').textContent = '(대시보드 번호 칼럼 추가 · v2025-09-30)';
+  $('btnBind').onclick = bind;
+  $('btnSaveRoster').onclick = saveRoster;
+  $('btnSetParent').onclick = setParent;
+  $('btnReload').onclick = reload;
+  $('btnPurge').onclick = purge;
+
+  // 쿼리로 EXEC 전달 허용: ?exec=https://script.google.com/macros/s/XXX/exec
+  if(!EXEC){
+    const hint = document.createElement('div');
+    hint.className='muted';
+    hint.style.marginTop='6px';
+    hint.textContent='URL 쿼리로 ?exec=<GAS EXEC URL> 전달하세요.';
+    document.querySelector('section').appendChild(hint);
+  }
+});
+</script>
+</body>
+</html>
