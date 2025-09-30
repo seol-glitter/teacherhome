@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>앱 연결</title>
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#eaf6ff;color:#0f172a}
+    .wrap{max-width:680px;margin:0 auto;padding:24px}
+    .card{background:#fff;border:1px solid #cbd5e1;border-radius:16px;padding:20px}
+    h1{margin:0 0 10px}
+    .ok{color:#16a34a;font-weight:800}
+    .btn{display:inline-block;margin-top:12px;padding:10px 16px;border-radius:10px;border:1px solid #0ea5e9;background:#0ea5e9;color:#fff;font-weight:800;text-decoration:none}
+    .note{font-size:12px;color:#334155;margin-top:8px}
+    .list{margin-top:14px;display:grid;gap:8px}
+    a.link{display:block;background:#0f172a;color:#fff;padding:10px 12px;border-radius:10px;text-decoration:none}
+  </style>
+  <body>
+    <!-- EXEC Glue: 한 번 받은 exec 값을 전 화면에서 공유 + 내부 링크에 자동 부착 -->
+    <script>
+      (function () {
+        const q = new URLSearchParams(location.search);
+        const paramExec = q.get('exec');
+        const savedExec = localStorage.getItem('EXEC');
+        const DEFAULT_EXEC = ''; // 비워두면 첫 진입은 반드시 ?exec=... 로
+        const EXEC = (paramExec && paramExec.trim()) || savedExec || DEFAULT_EXEC;
+        if (EXEC && EXEC !== savedExec) localStorage.setItem('EXEC', EXEC);
+        window.EXEC = EXEC;
+
+        // 내부 링크에 exec 자동 부착
+        document.addEventListener('DOMContentLoaded', () => {
+          if (!EXEC) return;
+          document.querySelectorAll('a[href$=".html"]').forEach((a) => {
+            try {
+              const u = new URL(a.getAttribute('href'), location.href);
+              if (!u.searchParams.get('exec')) {
+                u.searchParams.set('exec', EXEC);
+                a.setAttribute('href', u.pathname + u.search);
+              }
+            } catch (_) {}
+          });
+        });
+      })();
+    </script>
+
+    <div class="wrap">
+      <div class="card">
+        <h1>앱 연결 <span class="ok" id="ok"></span></h1>
+        <div id="msg" class="note"></div>
+        <div id="links" class="list" style="display:none"></div>
+      </div>
+    </div>
+
+    <script>
+      // 쿼리 파라미터
+      const q = new URLSearchParams(location.search);
+      const tk = (q.get('tk') || '').trim();
+      const mode = (q.get('mode') || 'a').toLowerCase(); // 'a' or 'b'
+
+      // 안내 문구
+      if (tk) {
+        document.getElementById('ok').textContent = '· 연결됨';
+        document.getElementById('msg').textContent = '학급 키가 확인되었습니다. 아래에서 촬영 항목을 선택하세요.';
+
+        // 문제 목록(라벨은 그대로)
+        const P = [
+          ['01_화재연기보면웅크려요','01 화재연기보면웅크려요'],
+          ['02_위험찾기','02 위험찾기'],
+          ['03_화재대피안전수칙','03 화재대피안전수칙'],
+          ['04_비상구로대피','04 비상구로대피'],
+          ['05_옷에불이붙었어요','05 옷에불이붙었어요'],
+          ['06_119신고하기','06 119신고하기'],
+          ['07_소화기사용법','07 소화기사용법'],
+          ['08_완강기사용법','08 완강기사용법'],
+        ];
+
+        // 동일 디렉터리의 capture.html 로 이동
+        const base = new URL('capture.html', location.href).toString().replace(/#.*$/,'');
+        const box = document.getElementById('links');
+        box.style.display = 'grid';
+        box.innerHTML = '';
+
+        P.forEach(([key, label]) => {
+          const a = document.createElement('a');
+          // ✅ exec를 반드시 전파
+          const exec = encodeURIComponent(window.EXEC || '');
+          const href = `${base}?problem=${encodeURIComponent(key)}&mode=${encodeURIComponent(mode)}&tk=${encodeURIComponent(tk)}${exec ? `&exec=${exec}` : ''}`;
+          a.href = href;
+          a.textContent = `캡쳐 열기 · ${label}`;
+          a.className = 'link';
+          box.appendChild(a);
+        });
+      } else {
+        document.getElementById('msg').textContent = 'tk가 없습니다. 교사용 홈에서 생성된 링크로 들어오세요.';
+      }
+    </script>
+  </body>
+</html>
