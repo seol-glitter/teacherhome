@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>캡쳐</title>
+
+<!-- ※ 원본 스타일/구조는 유지합니다. 필요한 스크립트만 최소 변경 -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<style>
+/* 원본 스타일이 있었다면 그대로 유지하세요. 이름 선택 영역과 카메라 레이아웃은 원본 클래스/ID 그대로 */
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;background:#f6fbff;color:#0f172a}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;padding:16px}
+.splash{display:flex;flex-direction:column;align-items:center;gap:10px}
+.splash img{width:min(40vh,320px);height:auto;display:block}
+.splash .big{font-size:clamp(36px,8vw,80px);font-weight:900;letter-spacing:-.02em}
+
+#camBox{display:none;flex-direction:column;align-items:center;gap:12px;width:100%}
+video{width:min(96vw,1100px);height:auto;border-radius:12px;background:#000}
+.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
+.btn{padding:10px 16px;border:0;border-radius:10px;color:#fff;font-weight:800;background:#0ea5e9;cursor:pointer}
+.btn:hover{background:#0284c7}
+.btn.alt{background:#0f172a}
+.nameBox{width:min(1100px,96vw);max-height:26vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;background:#fff;padding:8px;display:none}
+.nameGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.nameBtn{padding:10px;border:1px solid #94a3b8;border-radius:10px;background:#f8fafc;font-weight:800;cursor:pointer;text-align:center}
+.nameBtn.sel{outline:3px solid #0ea5e9;border-color:#0ea5e9;background:#e0f2fe}
+.smallNote{font-size:12px;color:#334155;text-align:center;margin-top:6px;display:none}
+
+/* 닫기 버튼(원본에 있던 위치/스타일을 유지하세요) */
+.close{position:fixed;top:12px;right:12px;background:#0f172a;color:#fff;border:0;border-radius:999px;padding:8px 12px;font-weight:900;cursor:pointer;z-index:99}
+
+/* 업로드 성공 오버레이(원본에 있던 요소를 그대로 사용) */
+#done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:10}
+.card{background:#fff;border-radius:16px;padding:20px;text-align:center;max-width:min(92vw,700px)}
+.card h2{margin:0 0 10px;font-size:clamp(36px,10vw,92px)}
+.card p{margin:0}
+
+/* 촬영 버튼(원본 아이콘/버튼 유지) */
+.shutter{width:min(18vw,110px);height:min(18vw,110px);min-width:84px;min-height:84px;border-radius:999px;border:none;cursor:pointer;background:#16a34a;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.shutter:active{transform:scale(.98)}
+.shutter svg{width:55%;height:55%;fill:#fff;display:block}
+</style>
+
+<body>
+<!-- 닫기: window.close 실패 시 history.back (UI는 그대로) -->
+<button class="close" onclick="try{window.close()}catch(e){} setTimeout(function(){history.back()},100)">닫기 ×</button>
+
+<div class="wrap">
+  <!-- 스플래시(원본 이미지/텍스트를 그대로) -->
+  <div id="splash" class="splash">
+    <img src="fire-key.png" alt="">
+    <div class="big">성공입니다!</div>
+  </div>
+
+  <!-- 카메라/이름 -->
+  <div id="camBox">
+    <!-- 이름 선택: 원본처럼 상단에 표시 -->
+    <div class="nameBox" id="nameBox"><div class="nameGrid" id="nameGrid"></div></div>
+    <div class="smallNote" id="noteNames">* 이름을 선택하지 않으면 <b>미분류</b>로 저장됩니다.</div>
+
+    <video id="v" playsinline muted></video>
+
+    <div class="controls">
+      <button class="btn alt" id="btnStart" type="button">카메라 다시 시작</button>
+      <button class="shutter" id="btnShoot" type="button" aria-label="촬영">
+        <svg viewBox="0 0 24 24"><path d="M9.5 5h5l1.3 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4.2L9.5 5zm2.5 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"/></svg>
+      </button>
+      <!-- 폴백 업로드(원본에 있었다면 그대로; 숨김 유지) -->
+      <input type="file" id="filePick" accept="image/*" capture="user" style="display:none"/>
+      <button class="btn" id="btnPick" style="display:none">사진 선택(폴백)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 업로드 성공 오버레이 -->
+<div id="done"><div class="card"><h2>성공입니다!</h2><p>업로드가 완료되었습니다.</p></div></div>
+
+<script>
+/* ====================== 원본 API 상수/값 로딩 ====================== */
+/* 이미 배포된 교사용 EXEC A/B (자리지정자였다면 그대로 두세요) */
+const EXEC_A = "https://script.google.com/macros/s/REPLACE_WITH_NEW_A/exec";
+const EXEC_B = "https://script.google.com/macros/s/REPLACE_WITH_NEW_B/exec";
+
+/* 원본: 모드/문항/키 획득.  ※ 문제 파라미터는 원본 호환을 위해 'p'를 최우선으로 읽습니다. */
+const qs = new URLSearchParams(location.search);
+const mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
+const EXEC = (mode === 'a') ? EXEC_A : EXEC_B;
+const problem = (qs.get('p') || qs.get('problem') || '').trim();  // ★ 원본 호환: p 우선
+let tk = (qs.get('tk') || localStorage.getItem('tk') || localStorage.getItem('teacherKey') || '').trim();
+if (qs.get('tk')) { localStorage.setItem('tk', tk); localStorage.setItem('teacherKey', tk); }
+localStorage.setItem('mode', mode);
+
+/* DOM */
+const $ = id => document.getElementById(id);
+const splash = $('splash'), camBox = $('camBox'), video = $('v'),
+      nameBox = $('nameBox'), grid = $('nameGrid'), noteNames = $('noteNames'),
+      btnStart = $('btnStart'), btnShoot = $('btnShoot'),
+      btnPick = $('btnPick'), filePick = $('filePick');
+
+let stream = null, roster = [], selected = '';
+
+/* JSONP 유틸 (원본과 동일한 방식) */
+function jsonp(url, timeout=15000){
+  return new Promise((res,rej)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2); let done=false;
+    const t=setTimeout(()=>{ if(done)return; done=true; cleanup(); rej(new Error('timeout')); }, timeout);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(t); }
+    window[cb]=d=>{ if(done)return; done=true; cleanup(); res(d); };
+    const s=document.createElement('script');
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb; s.onerror=()=>{ if(done)return; done=true; cleanup(); rej(new Error('network')); };
+    document.body.appendChild(s);
+  });
+}
+
+/* ========== 초기화 (원본 흐름 유지) ========== */
+(async()=>{
+  if(!problem){ alert('문항 코드가 없습니다. (URL에 ?p=... 필요)'); return; }
+  if(!tk){ alert('학급 연결 정보(tk)가 없습니다.\n홈에서 먼저 연결하거나 링크에 &tk=학급키 를 붙여 주세요.'); return; }
+
+  try{
+    // 원본 서버에서 명단 가져오기 (resolveKey)
+    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key: tk}));
+    roster = (j && Array.isArray(j.roster)) ? j.roster : [];
+  }catch(_){ /* 네트워크 실패 시 이름 영역 숨김 */ }
+
+  renderNames();
+
+  // ★ 스플래시 대기 1.0s → 0.5s 로만 변경 (요청사항)
+  setTimeout(()=>{ startCam().catch(()=>{}); }, 500);
+})();
+
+/* 이름 선택 표시 (원본 상단 표시 유지) */
+function renderNames(){
+  grid.innerHTML = '';
+  if((roster||[]).length > 0){
+    nameBox.style.display='block'; noteNames.style.display='block';
+    roster.forEach(n=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='nameBtn'+(selected===n?' sel':''); b.textContent=n;
+      b.onclick=()=>{ selected=n; renderNames(); };
+      grid.appendChild(b);
+    });
+  }else{
+    nameBox.style.display='none'; noteNames.style.display='none';
+  }
+}
+
+/* 카메라 제어 (원본 방식 유지) */
+async function startCam(){
+  stopCam();
+  splash.style.display='none';
+  camBox.style.display='flex';
+
+  let constraints={audio:false, video:{facingMode:{ideal:'user'}, width:{ideal:1280}, height:{ideal:720}}};
+  try{
+    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject=stream; await video.play();
+  }catch(e){
+    btnPick.style.display='inline-block'; filePick.style.display='none';
+    alert('전면 카메라 권한을 허용해 주세요. 안 될 경우 "사진 선택(폴백)"을 사용하세요.');
+  }
+}
+function stopCam(){ try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){} stream=null; }
+btnStart.onclick = ()=>startCam();
+
+/* 촬영 → 업로드(원본 서버 계약) */
+btnShoot.onclick = async ()=>{
+  try{
+    let dataURL=null, mime='image/jpeg', filename='capture.jpg';
+    if(stream){
+      const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
+      cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
+      dataURL=cv.toDataURL('image/jpeg',0.92);
+    }else{ btnPick.click(); return; }
+
+    const child = (selected || ''); // 미선택=미분류(원본 동일)
+    await uploadBase64(dataURL,mime,filename,child);
+
+    // ★ 원본처럼 성공 시 바로 완료 오버레이 → 0.5초 후 자동 닫기
+    $('done').style.display='flex';
+    setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+  }catch(e){
+    alert('업로드 실패'); console.error(e);
+  }
+};
+
+/* 파일 폴백 */
+btnPick.onclick = ()=>filePick.click();
+filePick.onchange = async ()=>{
+  if(!filePick.files.length) return;
+  const f=filePick.files[0], mime=f.type||'image/jpeg', filename=f.name||('capture_'+Date.now()+'.jpg');
+  const dataURL=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+  await uploadBase64(dataURL,mime,filename,'');
+  $('done').style.display='flex';
+  setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+};
+
+/* 원본 업로드 규약 유지: POST uploadSuccess */
+async function uploadBase64(dataURL,mime,filename,child){
+  const fd=new FormData();
+  fd.append('action','uploadSuccess');
+  fd.append('key',tk);
+  fd.append('problem',problem);  // 서버는 problem 필드로 받음(원본 동일)
+  fd.append('child',child);
+  fd.append('ts',Date.now());
+  fd.append('file_b64',(dataURL||'').split(',')[1]||'');
+  fd.append('mime',mime);
+  fd.append('filename',filename);
+  await fetch(EXEC,{method:'POST',body:fd,mode:'no-cors'}); // CORS 회피(원본과 동일 성격)
+}
+</script>
+</body>
+</html>
