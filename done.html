@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>업로드 완료</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;background:#f8fafc;color:#0f172a}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.06);padding:24px 28px;text-align:center}
+  h1{margin:0 0 10px;font-size:clamp(24px,6vw,40px)}
+  p{margin:0 0 12px;color:#334155}
+  a.btn{display:inline-block;margin-top:6px;padding:10px 16px;border-radius:12px;background:#0ea5e9;color:#fff;font-weight:800;text-decoration:none}
+</style>
+<body>
+<!-- EXEC Glue: 한 번 받은 exec 값을 전 화면에서 공유 + 내부 링크에 자동 부착 -->
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const paramExec = q.get('exec');
+  const savedExec = localStorage.getItem('EXEC');
+  const DEFAULT_EXEC = ''; // 비워두면 첫 진입은 반드시 ?exec=... 로 들어오면 됨
+
+  const EXEC = (paramExec && paramExec.trim()) || savedExec || DEFAULT_EXEC;
+  if (EXEC && EXEC !== savedExec) localStorage.setItem('EXEC', EXEC);
+  window.EXEC = EXEC;
+
+  // 내부 링크로 이동할 때 exec= 동일 값 자동 부착
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!EXEC) return;
+    document.querySelectorAll('a[href$=".html"]').forEach(a => {
+      try{
+        const u = new URL(a.getAttribute('href'), location.href);
+        if (!u.searchParams.get('exec')) {
+          u.searchParams.set('exec', EXEC);
+          a.setAttribute('href', u.pathname + u.search);
+        }
+      }catch(_){}
+    });
+  });
+})();
+</script>
+
+<script>
+/* EXEC Glue v1 — 모든 페이지에서 동일 EXEC 유지 */
+(function () {
+  const q = new URLSearchParams(location.search);
+  const paramExec = q.get('exec');
+  const savedExec = localStorage.getItem('EXEC');
+  const DEFAULT_EXEC = ''; // (선택) 비워두고, 첫 진입은 반드시 ?exec=... 로 들어오게 함
+
+  // 1) 결정
+  const EXEC = (paramExec && paramExec.trim()) || savedExec || DEFAULT_EXEC;
+  if (!EXEC) {
+    console.warn('[EXEC] not set. Append ?exec=<teacher-exec> to URL once.');
+  }
+  // 2) 저장
+  if (EXEC && EXEC !== savedExec) localStorage.setItem('EXEC', EXEC);
+  // 3) 전역 노출
+  window.EXEC = EXEC;
+
+  // 4) 내부 페이지 이동(a[href$=".html"])에 exec 자동 부착
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!EXEC) return;
+    document.querySelectorAll('a[href$=".html"]').forEach(a => {
+      const u = new URL(a.getAttribute('href'), location.href);
+      if (!u.searchParams.get('exec')) {
+        u.searchParams.set('exec', EXEC);
+        a.setAttribute('href', u.pathname + u.search);
+      }
+    });
+  });
+})();
+</script>
+
+  <div class="wrap">
+    <div class="card">
+      <h1>업로드 완료</h1>
+      <p>촬영한 사진이 저장되었습니다.</p>
+      <div id="slot"></div>
+    </div>
+  </div>
+<script>
+(function(){
+  const qs=new URLSearchParams(location.search);
+  const ret=qs.get('ret')||'';
+  const slot=document.getElementById('slot');
+  if(ret){
+    // ret= 인텐트/스킴/앱링크 모두 허용
+    const a=document.createElement('a');
+    a.className='btn'; a.textContent='앱으로 돌아가기';
+    a.href=ret;
+    slot.appendChild(a);
+  }else{
+    // ret이 없으면 홈으로 가기
+    const segs=location.pathname.split('/').filter(Boolean);
+    const base=segs.length?('/'+segs[0]):'';
+    const a=document.createElement('a'); a.className='btn'; a.textContent='닫기';
+    a.href=base+'/index.html';
+    slot.appendChild(a);
+  }
+})();
+</script>
+</body>
+</html>
