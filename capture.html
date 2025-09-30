@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>캡쳐</title>
+<style>
+:root{ --bg1:#dff0ff; --bg2:#eaf6ff; --ink:#0f172a; --btn:#0ea5e9; --btnD:#0284c7; --ok:#16a34a; --danger:#ef4444; }
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--bg1),var(--bg2))}
+.wrap{min-height:100%;display:flex;align-items:center;justify-content:center;position:relative;padding:20px}
+
+/* 스플래시 */
+.splash{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.splash img{width:min(38vh,320px);height:auto;display:block}
+.splash .big{font-size:clamp(36px,8vw,80px);font-weight:900;letter-spacing:-.02em}
+
+/* 카메라 */
+#camBox{display:none;flex-direction:column;align-items:center;gap:12px;width:100%}
+video{width:min(96vw,1100px);height:auto;border-radius:16px;background:#000}
+.controls{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
+.btn{padding:12px 18px;border:0;border-radius:12px;color:#fff;font-weight:900;background:var(--btn);cursor:pointer}
+.btn:hover{background:var(--btnD)}
+.btn.alt{background:#0f172a}
+.btn.danger{background:var(--danger)}
+
+/* 이름 선택(학급 버튼 제거, 유아만) */
+.whoBox{width:min(1100px,96vw);max-height:26vh;overflow:auto;border:1px solid #cbd5e1;border-radius:14px;background:#fff;padding:10px;display:none}
+.nameGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.nameBtn{padding:12px;border:1px solid #94a3b8;border-radius:12px;background:#f8fafc;font-weight:800;cursor:pointer;text-align:center}
+.nameBtn.sel{outline:3px solid #0ea5e9;border-color:#0ea5e9;background:#e0f2fe}
+.smallNote{font-size:12px;color:#334155;text-align:center;margin-top:6px}
+
+/* 닫기 */
+.close{position:fixed;top:16px;right:16px;background:#0f172a;color:#fff;border:0;border-radius:999px;padding:10px 14px;font-weight:900;cursor:pointer;z-index:99}
+
+/* 성공 오버레이 */
+#done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:10}
+.card{background:#fff;border-radius:16px;padding:24px 20px;text-align:center;max-width:min(92vw,700px)}
+.card h2{margin:0 0 10px;font-size:clamp(36px,10vw,92px)}
+.card p{margin:0}
+
+/* 아이 전용 셔터(카메라 아이콘) */
+.shutter{width:min(18vw,110px);height:min(18vw,110px);min-width:84px;min-height:84px;border-radius:999px;border:none;cursor:pointer;background:var(--ok);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.shutter:active{transform:scale(.98)} .shutter svg{width:55%;height:55%;fill:#fff;display:block}
+</style>
+<body>
+<!-- ⬇ 닫기 버튼: window.close 실패 시 history.back 폴백 (UI 동일) -->
+<button class="close" onclick="try{window.close()}catch(e){} setTimeout(function(){history.back()},100)">닫기 ×</button>
+
+<div class="wrap">
+  <!-- 스플래시 -->
+  <div id="splash" class="splash">
+    <img id="splashImg" alt="fire-key">
+    <div class="big">성공입니다!</div>
+  </div>
+
+  <!-- 카메라/이름 -->
+  <div id="camBox">
+    <div class="whoBox" id="whoBox"><div class="nameGrid" id="nameGrid"></div></div>
+    <div class="smallNote" id="noteNames" style="display:none">* 이름을 선택하지 않으면 <b>미분류</b>로 저장됩니다.</div>
+
+    <video id="v" playsinline muted></video>
+    <div class="controls">
+      <button class="btn alt" id="btnStart">카메라 다시 시작</button>
+      <button class="shutter" id="btnShoot" aria-label="촬영">
+        <svg viewBox="0 0 24 24"><path d="M9.5 5h5l1.3 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4.2L9.5 5zm2.5 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"/></svg>
+      </button>
+      <!-- 폴백(정말 안 될 때만 노출) -->
+      <input type="file" id="filePick" accept="image/*" capture="user" style="display:none"/>
+      <button class="btn" id="btnPick" style="display:none">사진 선택(폴백)</button>
+    </div>
+  </div>
+</div>
+
+<div id="done"><div class="card"><h2>성공입니다!</h2><p>업로드가 완료되었습니다.</p></div></div>
+
+<script>
+// 🔁 여기 2개 URL은 **새로 배포한** 웹앱 URL로 교체하세요!
+const EXEC_A="https://script.google.com/macros/s/REPLACE_WITH_NEW_A/exec";
+const EXEC_B="https://script.google.com/macros/s/REPLACE_WITH_NEW_B/exec";
+
+// fire-key 이미지: 상대경로 우선 → 루트 경로 폴백 (UI 동일, 유실 방지)
+(function(){
+  const img = document.getElementById('splashImg');
+  const cand = ['fire-key.png','./fire-key.png','/teacherhome/fire-key.png'];
+  let i = 0;
+  function setNext(){ if(i>=cand.length) return; img.onerror=function(){ i++; setNext(); }; img.src = cand[i]; }
+  setNext();
+})();
+
+const qs=new URLSearchParams(location.search);
+const mode=(qs.get('mode')||localStorage.getItem('mode')||'b').toLowerCase()==='a'?'a':'b';
+const EXEC=(mode==='a')?EXEC_A:EXEC_B;
+const problem=qs.get('problem')||'';
+let tk=(qs.get('tk')||localStorage.getItem('tk')||localStorage.getItem('teacherKey')||'').trim();
+if(qs.get('tk')){ localStorage.setItem('tk',tk); localStorage.setItem('teacherKey',tk); }
+localStorage.setItem('mode',mode);
+
+const $=id=>document.getElementById(id);
+const splash=$('splash'), camBox=$('camBox'), video=$('v'),
+      whoBox=$('whoBox'), grid=$('nameGrid'), noteNames=$('noteNames'),
+      btnStart=$('btnStart'), btnShoot=$('btnShoot'),
+      btnPick=$('btnPick'), filePick=$('filePick');
+let stream=null, roster=[], selected='';
+
+function jsonp(url, timeout=15000){
+  return new Promise((res,rej)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2); let done=false;
+    const t=setTimeout(()=>{ if(done)return; done=true; cleanup(); rej(new Error('timeout')); }, timeout);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(t); }
+    window[cb]=d=>{ if(done)return; done=true; cleanup(); res(d); };
+    const s=document.createElement('script');
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb; s.onerror=()=>{ if(done)return; done=true; cleanup(); rej(new Error('network')); };
+    document.body.appendChild(s);
+  });
+}
+
+// 업로드 반영 확인: 업로드 직후 시각 이후의 레코드가 보이는지
+async function waitServerWrite(t0, tries=3){
+  for(let i=0;i<tries;i++){
+    await new Promise(r=>setTimeout(r, 800));
+    try{
+      const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'listByChild', key: tk}));
+      const items = (r && Array.isArray(r.items)) ? r.items : [];
+      if(items.some(it => Number(it.ts||0) >= (t0-3000))) return true;
+    }catch(_){}
+  }
+  return false;
+}
+
+// 초기화
+(async()=>{
+  if(!problem){ alert('문항 코드가 없습니다. URL에 ?problem=... 을 붙여 주세요.'); return; }
+  if(!tk){ alert('학급 연결 정보(tk)가 없습니다.\n홈에서 먼저 로그인(연결)하거나, 링크에 &tk=학급키 를 붙여 주세요.'); return; }
+  try{
+    const j=await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey',key:tk}));
+    roster=(j&&Array.isArray(j.roster))?j.roster:[];  // 원본 로직 유지
+  }catch(_){}
+  renderNames();
+  // ⬇ 스플래시 대기 1.0s → 0.5s (요청사항)
+  setTimeout(()=>{ startCam().catch(()=>{}); }, 500);
+})();
+
+function renderNames(){
+  grid.innerHTML='';
+  if((roster||[]).length>0){
+    whoBox.style.display='block'; noteNames.style.display='block';
+    roster.forEach(n=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='nameBtn'+(selected===n?' sel':''); b.textContent=n;
+      b.onclick=()=>{ selected=n; renderNames(); };
+      grid.appendChild(b);
+    });
+  }else{
+    whoBox.style.display='none'; noteNames.style.display='none';
+  }
+}
+
+async function startCam(){
+  stopCam();
+  splash.style.display='none';
+  camBox.style.display='flex';
+
+  let constraints={audio:false, video:{facingMode:{ideal:'user'}, width:{ideal:1280}, height:{ideal:720}}};
+  try{
+    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    const isFront = await seemsFront(stream);
+    if(!isFront){
+      stopCam();
+      const devId = await findFrontDeviceId();
+      if(devId){
+        stream=await navigator.mediaDevices.getUserMedia({audio:false, video:{deviceId:{exact:devId}, width:{ideal:1280}, height:{ideal:720}}});
+      }else{
+        stream=await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{exact:'user'}}});
+      }
+    }
+    video.srcObject=stream; await video.play();
+  }catch(e){
+    btnPick.style.display='inline-block'; filePick.style.display='none';
+    alert('전면 카메라 권한을 허용해 주세요. 안 될 경우 "사진 선택(폴백)"을 사용하세요.');
+  }
+}
+function stopCam(){ try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){} stream=null; }
+document.getElementById('btnStart').onclick = ()=>startCam();
+
+async function seemsFront(strm){
+  try{
+    const s = strm.getVideoTracks()[0].getSettings();
+    if(s && s.facingMode) return (''+s.facingMode).toLowerCase().includes('user');
+  }catch(_){}
+  return false;
+}
+async function findFrontDeviceId(){
+  try{
+    const list = await navigator.mediaDevices.enumerateDevices();
+    const cams = list.filter(d=>d.kind==='videoinput');
+    const cand = cams.find(c=>/front|전면|user/i.test(c.label)) || cams[0];
+    return cand && cand.deviceId;
+  }catch(_){ return null; }
+}
+
+document.getElementById('btnShoot').onclick=async ()=>{
+  try{
+    let dataURL=null, mime='image/jpeg', filename='capture.jpg';
+    if(stream){
+      const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
+      cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
+      dataURL=cv.toDataURL('image/jpeg',0.92);
+    }else{ document.getElementById('btnPick').click(); return; }
+
+    const child = (selected || ''); // 미선택=미분류
+    const t0 = Date.now();
+    await uploadBase64(dataURL,mime,filename,child);
+
+    const ok = await waitServerWrite(t0, 3);
+    if(!ok){
+      alert('서버 반영을 확인하지 못했습니다.\n① 캡쳐와 대시보드의 모드(A/B)·URL 동일 여부\n② 같은 브라우저에 TK 저장 여부를 확인해 주세요.');
+      return;
+    }
+    stopCam(); document.getElementById('done').style.display='flex';
+    // ⬇ 업로드 성공 후 0.5초 뒤 자동 닫기 (요청사항)
+    setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+  }catch(e){ alert('업로드 실패'); console.error(e); }
+};
+
+document.getElementById('btnPick').onclick = ()=>filePick.click();
+filePick.onchange = async ()=>{
+  if(!filePick.files.length) return;
+  const f=filePick.files[0], mime=f.type||'image/jpeg', filename=f.name||('capture_'+Date.now()+'.jpg');
+  const dataURL=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+  const t0=Date.now();
+  await uploadBase64(dataURL,mime,filename,'');
+  const ok = await waitServerWrite(t0,3);
+  if(!ok){ alert('서버 반영 확인 실패(폴백 업로드). 모드/URL/TK를 확인하세요.'); return; }
+  document.getElementById('done').style.display='flex';
+  setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+};
+
+async function uploadBase64(dataURL,mime,filename,child){
+  const fd=new FormData();
+  fd.append('action','uploadSuccess'); fd.append('key',tk); fd.append('problem',problem); fd.append('child',child);
+  fd.append('ts',Date.now()); fd.append('file_b64',(dataURL||'').split(',')[1]||''); fd.append('mime',mime); fd.append('filename',filename);
+  await fetch(EXEC,{method:'POST',body:fd,mode:'no-cors'}); // CORS 이슈 회피
+}
+</script>
+</body>
+</html>
