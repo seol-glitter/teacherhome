@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>캡쳐</title>
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- 얼굴 임베딩을 위한 face-api.js (CDN) -->
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<style>
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;background:#f6fbff;color:#0f172a}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;padding:16px}
+.splash{display:flex;flex-direction:column;align-items:center;gap:10px}
+.splash img{width:min(40vh,320px);height:auto;display:block}
+.splash .big{font-size:clamp(36px,8vw,80px);font-weight:900;letter-spacing:-.02em}
+
+#camBox{display:none;flex-direction:column;align-items:center;gap:12px;width:100%}
+video{width:min(96vw,1100px);height:auto;border-radius:12px;background:#000}
+.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:6px}
+.btn{padding:10px 16px;border:0;border-radius:10px;color:#fff;font-weight:800;background:#0ea5e9;cursor:pointer}
+.btn:hover{background:#0284c7}
+.btn.alt{background:#0f172a}
+
+/* 이름 선택 상단 표시 (원본 유지) */
+.nameBox{width:min(1100px,96vw);max-height:26vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;background:#fff;padding:8px;display:none}
+.nameGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.nameBtn{padding:10px;border:1px solid #94a3b8;border-radius:10px;background:#f8fafc;font-weight:800;cursor:pointer;text-align:center}
+.nameBtn.sel{outline:3px solid #0ea5e9;border-color:#0ea5e9;background:#e0f2fe}
+.smallNote{font-size:12px;color:#334155;text-align:center;margin-top:6px;display:none}
+
+/* 닫기 */
+.close{position:fixed;top:12px;right:12px;background:#0f172a;color:#fff;border:0;border-radius:999px;padding:8px 12px;font-weight:900;cursor:pointer;z-index:99}
+
+/* 업로드 성공 오버레이 */
+#done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:10}
+.card{background:#fff;border-radius:16px;padding:20px;text-align:center;max-width:min(92vw,700px)}
+.card h2{margin:0 0 10px;font-size:clamp(36px,10vw,92px)}
+.card p{margin:0}
+
+/* 촬영 버튼 */
+.shutter{width:min(18vw,110px);height:min(18vw,110px);min-width:84px;min-height:84px;border-radius:999px;border:none;cursor:pointer;background:#16a34a;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.shutter:active{transform:scale(.98)}
+.shutter svg{width:55%;height:55%;fill:#fff;display:block}
+</style>
+
+<body>
+<button class="close" onclick="try{window.close()}catch(e){} setTimeout(function(){history.back()},100)">닫기 ×</button>
+
+<div class="wrap">
+  <!-- 스플래시 (원본 그대로) -->
+  <div id="splash" class="splash">
+    <img src="fire-key.png" alt="">
+    <div class="big">성공입니다!</div>
+  </div>
+
+  <!-- 카메라/이름 -->
+  <div id="camBox">
+    <!-- ★ 이름 선택 상단 표시 (원본 구조) -->
+    <div class="nameBox" id="nameBox"><div class="nameGrid" id="nameGrid"></div></div>
+    <div class="smallNote" id="noteNames">* 이름을 선택하지 않으면 <b>미분류</b>로 저장됩니다.</div>
+
+    <video id="v" playsinline muted></video>
+
+    <div class="controls">
+      <button class="btn alt" id="btnStart" type="button">카메라 다시 시작</button>
+      <button class="shutter" id="btnShoot" type="button" aria-label="촬영">
+        <svg viewBox="0 0 24 24"><path d="M9.5 5h5l1.3 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4.2L9.5 5zm2.5 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"/></svg>
+      </button>
+      <input type="file" id="filePick" accept="image/*" capture="user" style="display:none"/>
+      <button class="btn" id="btnPick" style="display:none">사진 선택(폴백)</button>
+    </div>
+  </div>
+</div>
+
+<div id="done"><div class="card"><h2>성공입니다!</h2><p>업로드가 완료되었습니다.</p></div></div>
+
+<script>
+/* ====================== 공통: 쿼리 파서/전역 가드 ====================== */
+const qs = new URLSearchParams(location.search);
+let __blocked = false;  // 손님모드/미연결 차단 플래그
+let __busy = false;     // 중복 클릭 방지 가드
+
+/* ====================== 원본 API 상수 ====================== */
+const EXEC_A = "https://script.google.com/macros/s/REPLACE_WITH_NEW_A/exec";
+const EXEC_B = "https://script.google.com/macros/s/REPLACE_WITH_NEW_B/exec";
+
+/* ====================== 파라미터/EXEC/TK 멀티소스 취합 ====================== */
+const mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
+localStorage.setItem('mode', mode);
+
+// 1) 쿼리
+const execFromQuery  = (qs.get('exec') || '').trim();
+const tkFromQuery    = (qs.get('tk')   || '').trim();
+
+// 2) localStorage (홈/대시보드 저장값 재사용)
+const execFromStore  = (localStorage.getItem('EXEC') || localStorage.getItem('exec') || '').trim();
+const tkFromStore    = (localStorage.getItem('TK')   || localStorage.getItem('key')  || localStorage.getItem('tk') || localStorage.getItem('teacherKey') || '').trim();
+
+// 3) referrer 쿼리 (고정 URL일 때 상위에서 전달된 값 회수)
+let execFromRef = '', tkFromRef = '';
+try {
+  if (document.referrer) {
+    const r = new URL(document.referrer);
+    execFromRef = (r.searchParams.get('exec') || '').trim();
+    tkFromRef   = (r.searchParams.get('tk')   || '').trim();
+  }
+} catch(_) { /* 무음 */ }
+
+// 4) 기본값(A/B)
+const EXEC_BASE = (mode==='a') ? EXEC_A : EXEC_B;
+
+// 최종값: 쿼리 > 저장소 > referrer > 기본
+const EXEC = execFromQuery || execFromStore || execFromRef || EXEC_BASE;
+const TK   = tkFromQuery   || tkFromStore   || tkFromRef;
+
+// EXEC 치명 점검(단 1회만)
+if (!EXEC || !/^https?:\/\//.test(EXEC)) {
+  alert('업로드 대상 URL(EXEC)을 찾을 수 없습니다.\n홈/대시보드에서 연결 후 다시 시도하거나, 로컬스토리지 EXEC를 확인해 주세요.');
+  throw new Error('Missing EXEC');
+}
+
+/* ====================== JSONP 유틸 (단일 정의) ====================== */
+function jsonp(url, timeout=15000){
+  return new Promise((res,rej)=>{
+    const cb='cb_'+Math.random().toString(36).slice(2); let done=false;
+    const t=setTimeout(()=>{ if(done)return; done=true; cleanup(); rej(new Error('timeout')); }, timeout);
+    function cleanup(){ try{ delete window[cb]; s.remove(); }catch(_){ } clearTimeout(t); }
+    window[cb]=d=>{ if(done)return; done=true; cleanup(); res(d); };
+    const s=document.createElement('script');
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb; s.onerror=()=>{ if(done)return; done=true; cleanup(); rej(new Error('network')); };
+    document.body.appendChild(s);
+  });
+}
+
+/* ====================== 연결 확인(손님모드 가드) ====================== */
+async function isConnected(exe, tk){
+  if(!exe || !tk) return false;
+  try{
+    const r = await jsonp(exe+'?action=resolveKey&key='+encodeURIComponent(tk));
+    return !!(r && r.ok && r.schoolId && r.classId);
+  }catch(_){ return false; }
+}
+
+// 운영 편의용 강제 손님모드 스위치(선택): guest=1 또는 GUEST=1
+const isGuestForced = (qs.get('guest') === '1') || (localStorage.getItem('GUEST') === '1');
+
+// 손님모드/미연결 가드: 촬영 초기화 전에 실행
+(async ()=>{
+  const connected = await isConnected(EXEC, TK);
+  if (isGuestForced || !connected) {
+    alert('손님모드이거나 연결되지 않았습니다. 교사용 홈에서 연결 후 다시 시도해 주세요.');
+    __blocked = true;
+    setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 600);
+    return;
+  }
+})();
+
+/* ====================== 문항/키 (원본 호환 유지) ====================== */
+const problem = (qs.get('p') || qs.get('problem') || '').trim();
+
+// 업로드에 사용될 실제 키는 ‘TK’ 최종값을 그대로 사용
+let tk = TK;
+if (tk) { localStorage.setItem('tk', tk); localStorage.setItem('teacherKey', tk); }
+
+/* ====================== 얼굴 임베딩 모델 경로/함수 (무음 처리) ====================== */
+const MODEL_URL = './models';
+
+async function loadModelsOnce(){
+  if (loadModelsOnce._loaded) return;
+  if (!window.faceapi) { loadModelsOnce._loaded = 'skip'; return; }
+  try{
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    loadModelsOnce._loaded = true;
+  }catch(_){ loadModelsOnce._loaded = 'skip'; }
+}
+
+async function getEmbeddingFromCanvas(canvas){
+  try{
+    await loadModelsOnce();
+    if (!window.faceapi || loadModelsOnce._loaded === 'skip') return [];
+    const det = await faceapi
+      .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+    if (!det || !det.descriptor) return [];
+    return Array.from(det.descriptor);
+  }catch(_){ return []; }
+}
+
+/* ====================== DOM (원본) ====================== */
+const $ = id => document.getElementById(id);
+const splash = $('splash'), camBox = $('camBox'), video = $('v'),
+      nameBox = $('nameBox'), grid = $('nameGrid'), noteNames = $('noteNames'),
+      btnStart = $('btnStart'), btnShoot = $('btnShoot'),
+      btnPick = $('btnPick'), filePick = $('filePick');
+
+let stream = null, roster = [], selected = '';
+
+/* ====================== 초기화 (원본 흐름 유지) ====================== */
+(async()=>{
+  if (__blocked) return;  // 손님모드/미연결이면 초기화 중단
+  if(!problem){ alert('문항 코드가 없습니다. (URL에 ?p=... 필요)'); return; }
+  if(!tk){ alert('학급 연결 정보(tk)가 없습니다.\n홈에서 먼저 연결하거나 링크에 &tk=학급키 를 붙여 주세요.'); return; }
+
+  try{
+    const j = await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key: tk}));
+    roster = (j && Array.isArray(j.roster)) ? j.roster : [];
+  }catch(_){ /* 실패 시 이름 영역 숨김 */ }
+
+  renderNames();
+  setTimeout(()=>{ startCam().catch(()=>{}); }, 500);
+})();
+
+function renderNames(){
+  grid.innerHTML = '';
+  if((roster||[]).length > 0){
+    nameBox.style.display='block'; noteNames.style.display='block';
+    roster.forEach(n=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='nameBtn'+(selected===n?' sel':''); b.textContent=n;
+      b.onclick=()=>{ selected=n; renderNames(); };
+      grid.appendChild(b);
+    });
+  }else{
+    nameBox.style.display='none'; noteNames.style.display='none';
+  }
+}
+
+/* 카메라 (원본 유지) */
+async function startCam(){
+  stopCam();
+  splash.style.display='none';
+  camBox.style.display='flex';
+  try{
+    // 원본은 전면('user') 기준이므로 그대로 유지
+    stream=await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:'user'}, width:{ideal:1280}, height:{ideal:720}}});
+    video.srcObject=stream; await video.play();
+  }catch(e){
+    btnPick.style.display='inline-block'; filePick.style.display='none';
+    alert('전면 카메라 권한을 허용해 주세요. 안 될 경우 "사진 선택(폴백)"을 사용하세요.');
+  }
+}
+function stopCam(){ try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){} stream=null; }
+btnStart.onclick = ()=>startCam();
+
+/* 촬영 → 업로드(임베딩 포함, 성공 팝업 1회 / 실패 무음) */
+btnShoot.onclick = async ()=>{
+  if (__busy) return;
+  __busy = true;
+  try {
+    let dataURL=null, mime='image/jpeg', filename='capture.jpg', embed=[];
+    if(stream){
+      const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
+      cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
+      embed = await getEmbeddingFromCanvas(cv);                 // 임베딩 실패해도 [] 반환
+      dataURL=cv.toDataURL('image/jpeg',0.92);
+    } else {
+      btnPick.click();
+      return;
+    }
+
+    const child = (selected || ''); // 미선택=미분류
+    await uploadBase64(dataURL,mime,filename,child,embed);
+
+    alert('업로드 완료되었습니다');      // 성공 메시지 1회
+    $('done').style.display='flex';      // 원본 오버레이 유지
+    setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+  } catch(_) {
+    // 무음 처리: 실패 팝업/콘솔 출력 없음
+  } finally {
+    __busy = false;
+  }
+};
+
+/* 파일 폴백 */
+btnPick.onclick = ()=>filePick.click();
+filePick.onchange = async ()=>{
+  if(!filePick.files.length) return;
+  const f=filePick.files[0], mime=f.type||'image/jpeg', filename=f.name||('capture_'+Date.now()+'.jpg');
+  const dataURL=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+  let embed=[];
+  try{
+    const img = new Image(); img.src = dataURL; await img.decode();
+    const cv=document.createElement('canvas'); cv.width=img.naturalWidth; cv.height=img.naturalHeight;
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    embed = await getEmbeddingFromCanvas(cv);
+  }catch(_){ embed=[]; }
+
+  await uploadBase64(dataURL,mime,filename,(selected||''),embed);
+  $('done').style.display='flex';
+  setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+};
+
+/* 업로드 (원본 POST uploadSuccess) — embed만 추가 */
+async function uploadBase64(dataURL,mime,filename,child,embedVec){
+  const fd=new FormData();
+  fd.append('action','uploadSuccess');
+  fd.append('key',tk);            // ← 최종 TK 사용
+  fd.append('problem',problem);
+  fd.append('child',child||'');
+  fd.append('ts',Date.now());
+  fd.append('file_b64',(dataURL||'').split(',')[1]||'');
+  fd.append('mime',mime);
+  fd.append('filename',filename);
+  if (Array.isArray(embedVec) && embedVec.length) {
+    fd.append('embed', JSON.stringify(embedVec)); // 임베딩 동반 업로드(없어도 OK)
+  }
+  await fetch(EXEC,{method:'POST',body:fd,mode:'no-cors'});
+}
+</script>
+</body>
+</html>
