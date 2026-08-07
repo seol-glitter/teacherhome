@@ -82,7 +82,7 @@ thead th{background:#f8fafc; position:sticky; top:0; z-index:1}
     <h1>교사용 대시보드</h1>
     <span id="modePill" class="badge">모드 B</span>
     <span id="bindPill" class="badge gray">손님</span>
-    <a href="./index.html" class="badge alt" style="text-decoration:none">← 교사용 홈</a>
+    <a href="./index-ai.html" class="badge alt" style="text-decoration:none">← 교사용 홈</a>
   </div>
 
   <!-- A0: 유아 성취도 -->
@@ -516,7 +516,7 @@ async function openEditor(fid){
   // 문항 선택
   selProb.innerHTML='';
   PROBLEMS.forEach(p=>{
-    const o=document.createElement('option'); o.value=p; o.textContent=p; selProb.appendChild(o);
+    const o=document.createElement('option'); o.value=p; o.textContent = PROBLEM_LABELS[p] || p;; selProb.appendChild(o);
   });
   selProb.value = PROBLEMS.includes(curProb)? curProb : PROBLEMS[0];
 
