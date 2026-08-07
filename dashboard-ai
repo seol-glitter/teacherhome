@@ -65,10 +65,19 @@ thead th{background:#f8fafc; position:sticky; top:0; z-index:1}
   display: none !important;
   pointer-events: none !important;
 }
+.aiBanner{
+  width:100%;
+  max-height:220px;
+  object-fit:contain;
+  display:block;
+  border-radius:16px;
+  margin-bottom:12px;
+}
 </style>
 
 <body>
 <div class="wrap">
+  <img src="./ai-banner.png" alt="디지팡팡 AI 구조대" class="aiBanner">
   <div class="top">
     <h1>교사용 대시보드</h1>
     <span id="modePill" class="badge">모드 B</span>
