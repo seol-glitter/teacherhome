@@ -61,6 +61,51 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;c
 .banner{background:#e7f3ff;border:1px solid var(--line);border-radius:18px;overflow:hidden}
 .banner img{display:block;width:100%;height:auto}
 
+/* 상단 체험 영역 */
+a.trial-banner{
+  display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:center;
+  padding:20px;text-decoration:none;color:inherit;cursor:pointer;
+}
+a.trial-banner:hover{background:#dff0ff}
+a.trial-banner:hover .trial-cta{background:var(--primaryD)}
+.trial-preview{min-width:0}
+.trial-preview-frame{
+  border-radius:14px;border:1px solid #cfe4f7;background:#f8fbff;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  max-width:100%;
+}
+.trial-preview-frame img{
+  display:block;width:100%;height:auto;max-width:100%;
+  object-fit:contain;border-radius:14px;
+}
+.trial-copy{min-width:0}
+.trial-copy strong{display:block;font-size:22px;line-height:1.3;margin:0 0 10px}
+.trial-copy p{margin:0 0 8px;color:#334155;line-height:1.55;font-size:14px}
+.trial-cta{margin-top:10px}
+.btn.success:hover{filter:brightness(.96)}
+
+/* 카메라 접근권한 안내 */
+.cam-notice{
+  margin-top:10px;padding:12px 14px;border-radius:12px;
+  border:1px solid #cfe4f7;background:#f4f9fd;color:#334155;
+  font-size:13px;line-height:1.55;max-width:100%;box-sizing:border-box;
+}
+.cam-notice-title{margin:0 0 8px;font-weight:800;color:#0f172a;font-size:13px}
+.cam-notice p{margin:0 0 6px}
+.cam-notice p:last-child{margin-bottom:0}
+
+/* 이용안내 카드 보조 다운로드 (숨김: 표시하려면 아래 display:none 제거) */
+.guide-extra{
+  display:none;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+}
+.guide-extra .note{margin-bottom:6px}
+.btn.btn-sub{
+  padding:8px 12px;font-size:12px;font-weight:700;
+  background:#e2e8f0;color:#475569;border:1px solid #cbd5e1;
+}
+.btn.btn-sub:disabled{opacity:.7;cursor:not-allowed}
+
 /* 카드 */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
 .card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px}
@@ -78,15 +123,29 @@ input{width:100%;padding:12px;border-radius:12px;border:1px solid #cbd5e1;backgr
 .badge{display:inline-block;margin-left:8px;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px}
 .badge.on{background:#dcfce7;color:#065f46}
 .badge.off{background:#fee2e2;color:#991b1b}
-@media (max-width:900px){ .grid{grid-template-columns:1fr} }
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  a.trial-banner{grid-template-columns:1fr;gap:14px;padding:16px}
+  .trial-copy strong{font-size:20px}
+}
 </style>
 <body>
 <div class="wrap">
 
-  <!-- 배너 (루트의 banner.png 사용) -->
-  <div class="banner">
-    <img id="bannerImg" alt="디지팡팡 AI 구조대">
-  </div>
+  <!-- 상단 체험 영역 (전체 클릭 → ./ai-app/) -->
+  <a class="banner trial-banner" href="https://seol-glitter.github.io/teacherhome/ai-app/" aria-label="디지팡팡 AI 구조대 학습 바로가기">
+    <div class="trial-preview">
+      <div class="trial-preview-frame">
+        <img src="./lesson-select-preview.png" alt="차시 선택 화면 미리보기">
+      </div>
+    </div>
+    <div class="trial-copy">
+      <strong>디지팡팡 AI 구조대 학습 바로가기</strong>
+      <p>별도의 설치 없이 웹에서 앱과 동일한 AI 윤리교육 활동을 바로 실행할 수 있습니다.</p>
+      <p>교사의 대집단 수업과 유아의 참여형 활동에 함께 활용할 수 있습니다.</p>
+      <span class="btn primary trial-cta">학습 바로가기</span>
+    </div>
+  </a>
 
   <div style="margin:12px 0 0 4px;font-weight:800">
     교사용 홈 <span id="bindState" class="badge off">손님</span>
@@ -112,29 +171,36 @@ input{width:100%;padding:12px;border-radius:12px;border:1px solid #cbd5e1;backgr
       <div class="note" id="msg" style="margin-top:10px"></div>
     </div>
 
-    <!-- 우측: 수업하기 패널 -->
+    <!-- 우측: 교사용 홈 이용안내 -->
     <div class="card">
-      <h3>수업하기</h3>
-      <div class="row">
-        <!-- 구글 사이트로 이동(앵커) -->
-       <button class="btn success" id="windowsDownloadBtn" disabled>
-         Windows 수업용 다운로드 
-       </button>
-      </div>
-      <div class="note" style="margin-top:8px">안내</div>
+      <h3>교사용 홈 이용안내</h3>
       <ul class="bullets">
-        <li>‘수업하기’는 가입 없이 대집단 수업에 바로 활용할 수 있습니다.</li>
-        <li>‘학급 생성’으로 학급 유아의 성취 상황을 기록할 수 있습니다.</li>
-        <li>‘나의 학급 들어가기’에서 학급 유아의 성취 상황을 확인할 수 있습니다.</li>
+        <li>가입 없이 손님 모드로 학습을 바로 이용할 수 있습니다.</li>
+        <li>학급을 생성하면 유아의 활동 결과를 기록할 수 있습니다.</li>
+        <li>‘나의 학급 들어가기’에서 학급 유아의 활동 결과를 확인할 수 있습니다.</li>
         <li>같은 기관·반 이름이라도 <b>비밀번호가 다르면</b> 서로 다른 독립 학급으로 인식됩니다.</li>
         <li>수집된 자료는 가입일로부터 18개월 후 자동 삭제됩니다.</li>
       </ul>
+      <div class="guide-extra">
+        <div class="note">선택 기능</div>
+        <button class="btn btn-sub" id="windowsDownloadBtn" disabled>
+          Windows용 다운로드
+        </button>
+      </div>
     </div>
 
     <!-- (신규) 카메라 준비/점검 -->
     <div class="card">
       <h3>카메라 준비/점검</h3>
       <div class="note" id="camStatus">상태 확인 중…</div>
+      <div class="cam-notice">
+        <div class="cam-notice-title">카메라 접근권한 안내</div>
+        <p>활동 성공 후 유아의 활동 결과 사진을 촬영하기 위해 카메라 기능을 사용합니다.</p>
+        <p><b>학부모가 사진 촬영 및 이용에 동의한 유아만 촬영할 수 있습니다.</b><br>
+        수업 시 반드시 동의 여부를 확인해 주세요.</p>
+        <p>카메라 권한은 선택 사항이며,<br>
+        허용하지 않아도 사진 촬영을 제외한 모든 학습 활동은 이용할 수 있습니다.</p>
+      </div>
       <div class="row" style="margin-top:8px">
         <button class="btn primary" id="btnReqCam">카메라 권한 요청하기</button>
         <button class="btn muted" id="btnOpenHelp" type="button">설정 여는 방법</button>
@@ -146,10 +212,13 @@ input{width:100%;padding:12px;border-radius:12px;border:1px solid #cbd5e1;backgr
 
 <script>
 /* ---------- 배너 경로(루트의 banner.png) ---------- */
+/* #bannerImg 제거됨: 상단이 체험 링크로 교체되어 경로 설정 생략 */
 (function(){
+  const img = document.getElementById('bannerImg');
+  if(!img) return;
   const segs = location.pathname.split('/').filter(Boolean);
   const base = segs.length ? '/' + segs[0] : '';
-  document.getElementById('bannerImg').src = base + '/ai-banner.png';
+  img.src = base + '/ai-banner.png';
 })();
 
 /* ---------- 설정 ---------- */
