@@ -68,6 +68,21 @@ video{width:min(96vw,1100px);height:auto;border-radius:12px;background:#000}
 }
 @keyframes savingSpin{to{transform:rotate(360deg)}}
 
+/* 촬영 카운트다운 (카메라 위 중앙, 스크롤 무관) */
+#countdownOverlay{
+  display:none;position:fixed;inset:0;z-index:180;
+  background:rgba(15,23,42,.35);
+  align-items:center;justify-content:center;
+  pointer-events:auto;
+}
+#countdownOverlay.show{display:flex}
+#countdownOverlay .countNum{
+  color:#fff;font-weight:900;line-height:1;
+  font-size:clamp(96px,28vw,220px);
+  text-shadow:0 4px 24px rgba(0,0,0,.45);
+  user-select:none;
+}
+
 /* 촬영 버튼 */
 .shutter{width:min(18vw,110px);height:min(18vw,110px);min-width:84px;min-height:84px;border-radius:999px;border:none;cursor:pointer;background:#16a34a;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(0,0,0,.25)}
 .shutter:active{transform:scale(.98)}
@@ -117,6 +132,10 @@ video{width:min(96vw,1100px);height:auto;border-radius:12px;background:#000}
   <div class="savingMsg">사진을 저장하고 있어요...</div>
 </div>
 
+<div id="countdownOverlay" aria-live="assertive">
+  <div class="countNum" id="countdownNum">3</div>
+</div>
+
 <script>
 /* 기존 우상단 닫기와 동일: close 시도 후 history.back */
 function closeCapturePage(){
@@ -128,6 +147,7 @@ function closeCapturePage(){
 const qs = new URLSearchParams(location.search);
 let __blocked = false;  // 손님모드/미연결 차단 플래그
 let isUploading = false; // 촬영/업로드 중복 클릭 방지
+let isCountingDown = false; // 3-2-1 카운트다운 중
 
 /* ====================== 원본 API 상수 ====================== */
 const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
@@ -237,6 +257,8 @@ function showSavingOverlay(on){
 }
 function showCaptureDoneUI(){
   isUploading = true;
+  isCountingDown = false;
+  showCountdownOverlay(false);
   showSavingOverlay(false);
   try{ btnShoot.disabled = true; }catch(_){}
   try{ btnStart.disabled = true; }catch(_){}
@@ -310,7 +332,7 @@ function renderNames(){
     roster.forEach(n=>{
       const b=document.createElement('button');
       b.type='button'; b.className='nameBtn'+(selected===n?' sel':''); b.textContent=n;
-      b.onclick=()=>{ selected=n; renderNames(); };
+      b.onclick=()=>{ if(isUploading || isCountingDown) return; selected=n; renderNames(); };
       grid.appendChild(b);
     });
   }else{
@@ -336,7 +358,7 @@ async function startCam(){
 }
 function stopCam(){ try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){} stream=null; }
 btnStart.onclick = ()=>{
-  if(isCaptureDoneRecent() || btnStart.disabled) return;
+  if(isCaptureDoneRecent() || btnStart.disabled || isCountingDown || isUploading) return;
   startCam();
 };
 
@@ -358,6 +380,32 @@ function setShootBusyUI(on){
     showSavingOverlay(false);
   }
 }
+function showCountdownOverlay(on, num){
+  const el = document.getElementById('countdownOverlay');
+  const numEl = document.getElementById('countdownNum');
+  if(!el) return;
+  if(on){
+    if(numEl && num != null) numEl.textContent = String(num);
+    el.classList.add('show');
+  }else{
+    el.classList.remove('show');
+  }
+}
+function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
+async function runShootCountdown(){
+  showCountdownOverlay(true, 3);
+  await sleep(1000);
+  showCountdownOverlay(true, 2);
+  await sleep(1000);
+  showCountdownOverlay(true, 1);
+  await sleep(1000);
+  showCountdownOverlay(false);
+}
+function isStreamReady(){
+  try{
+    return !!(stream && stream.active && video && video.videoWidth > 0 && video.videoHeight > 0);
+  }catch(_){ return false; }
+}
 /* 업로드용만 축소(긴 변 최대 960). 임베딩용 원본 canvas는 건드리지 않음 */
 function makeUploadDataURL(srcCanvas){
   const sw = srcCanvas.width, sh = srcCanvas.height;
@@ -373,22 +421,42 @@ function makeUploadDataURL(srcCanvas){
 }
 
 btnShoot.onclick = async ()=>{
-  if (isUploading || isCaptureDoneRecent()) return;
+  if (isUploading || isCountingDown || isCaptureDoneRecent()) return;
+
+  // 카메라 없음: 기존 폴백만 (카운트다운 없음)
+  if(!stream){
+    isUploading = false;
+    btnPick.click();
+    return;
+  }
+
+  // 클릭 즉시 잠금 (저장 오버레이는 아직 표시하지 않음)
+  isCountingDown = true;
   isUploading = true;
-  setShootBusyUI(true);
+  btnShoot.disabled = true;
+  btnStart.disabled = true;
+
   try {
-    let dataURL=null, mime='image/jpeg', filename='capture.jpg', embed=[];
-    if(stream){
-      const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
-      cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
-      embed = await getEmbeddingFromCanvas(cv);                 // 임베딩: 원본 canvas 유지
-      dataURL = makeUploadDataURL(cv);                          // 업로드만 축소 JPEG 0.85
-    } else {
+    await runShootCountdown();
+
+    // 카운트다운 중 카메라 끊김 → 촬영 중단, 재촬영 가능 복구
+    if(!isStreamReady()){
+      isCountingDown = false;
       isUploading = false;
+      showCountdownOverlay(false);
       setShootBusyUI(false);
-      btnPick.click();
       return;
     }
+
+    isCountingDown = false;
+    // 실제 캡처/업로드 시작: 기존 savingOverlay + 촬영 로직
+    setShootBusyUI(true);
+
+    let dataURL=null, mime='image/jpeg', filename='capture.jpg', embed=[];
+    const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
+    cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
+    embed = await getEmbeddingFromCanvas(cv);                 // 임베딩: 원본 canvas 유지
+    dataURL = makeUploadDataURL(cv);                          // 업로드만 축소 JPEG 0.85
 
     const child = (selected || ''); // 미선택=미분류
     await uploadBase64(dataURL,mime,filename,child,embed);
@@ -402,6 +470,8 @@ btnShoot.onclick = async ()=>{
     showCaptureDoneUI();
   } catch(_) {
     // 실패 시에만 다시 시도 가능 (완료 플래그 기록 안 함)
+    isCountingDown = false;
+    showCountdownOverlay(false);
     isUploading = false;
     btnStart.disabled = false;
     setShootBusyUI(false);
