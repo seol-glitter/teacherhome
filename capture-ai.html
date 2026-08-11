@@ -303,6 +303,20 @@ function setShootBusyUI(on){
     noteNames.style.display = ((roster||[]).length > 0) ? 'block' : 'none';
   }
 }
+/* 업로드용만 축소(긴 변 최대 960). 임베딩용 원본 canvas는 건드리지 않음 */
+function makeUploadDataURL(srcCanvas){
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+  const maxSide = 960;
+  const longSide = Math.max(sw, sh);
+  const scale = (longSide > maxSide) ? (maxSide / longSide) : 1; // 확대 금지
+  const dw = Math.max(1, Math.round(sw * scale));
+  const dh = Math.max(1, Math.round(sh * scale));
+  const uploadCanvas = document.createElement('canvas');
+  uploadCanvas.width = dw; uploadCanvas.height = dh;
+  uploadCanvas.getContext('2d').drawImage(srcCanvas, 0, 0, sw, sh, 0, 0, dw, dh);
+  return uploadCanvas.toDataURL('image/jpeg', 0.85);
+}
+
 btnShoot.onclick = async ()=>{
   if (isUploading || isCaptureDoneRecent()) return;
   isUploading = true;
@@ -312,8 +326,8 @@ btnShoot.onclick = async ()=>{
     if(stream){
       const cv=document.createElement('canvas'), vw=video.videoWidth, vh=video.videoHeight;
       cv.width=vw; cv.height=vh; cv.getContext('2d').drawImage(video,0,0,vw,vh);
-      embed = await getEmbeddingFromCanvas(cv);                 // 임베딩 실패해도 [] 반환
-      dataURL=cv.toDataURL('image/jpeg',0.92);
+      embed = await getEmbeddingFromCanvas(cv);                 // 임베딩: 원본 canvas 유지
+      dataURL = makeUploadDataURL(cv);                          // 업로드만 축소 JPEG 0.85
     } else {
       isUploading = false;
       setShootBusyUI(false);
