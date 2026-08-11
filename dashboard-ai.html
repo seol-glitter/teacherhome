@@ -40,7 +40,13 @@ thead th{background:#f8fafc; position:sticky; top:0; z-index:1}
 .kid{cursor:pointer}
 .kid:hover{background:#f1f5f9}
 .thumb{width:72px; height:54px; object-fit:cover; border-radius:10px; background:#e2e8f0; display:block; margin:0 auto}
+.thumb.thumb-pending{opacity:.55}
 .empty{color:#94a3b8}
+.perfLoading{
+  text-align:center !important; padding:28px 16px !important;
+  color:#334155; font-weight:800; font-size:15px; line-height:1.5;
+  background:linear-gradient(180deg,#f8fafc,#eef6ff);
+}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap; margin-top:8px}
 .pill{padding:6px 10px; border-radius:999px; background:#e2e8f0; cursor:pointer; font-weight:700}
 .pill.on{background:#0ea5e9; color:#fff}
@@ -108,7 +114,11 @@ thead th{background:#f8fafc; position:sticky; top:0; z-index:1}
             <th>8차시 · 안전하게 AI 사용하기</th>
           </tr>
         </thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="tbody">
+          <tr id="perfLoadingRow">
+            <td colspan="9" class="perfLoading">성취 결과를 불러오고 있습니다...</td>
+          </tr>
+        </tbody>
       </table>
     </div>
     <div class="note" id="noItems" style="display:none">아직 업로드된 촬영이 없습니다.</div>
@@ -302,9 +312,20 @@ function setHeader(){
   else   { bind.textContent='손님';   bind.classList.remove('alt');  bind.classList.add('gray'); }
 }
 
+function showPerfLoading(msg){
+  const tbody = document.getElementById('tbody');
+  const noItems = document.getElementById('noItems');
+  if(noItems) noItems.style.display = 'none';
+  if(!tbody) return;
+  const text = msg || '성취 결과를 불러오고 있습니다...';
+  tbody.innerHTML = '<tr id="perfLoadingRow"><td colspan="9" class="perfLoading">'+text+'</td></tr>';
+}
+
 // 초기화
 (async function init(){
   setHeader();
+  // 네트워크 대기 전에도 성취도 영역이 즉시 반응하도록 로딩 상태 표시
+  showPerfLoading('성취 결과를 불러오고 있습니다...');
   if(!tk){ alert('학급 연결 정보(tk)가 없습니다. (홈에서 먼저 로그인)'); return; }
   try{
     let r = null;
@@ -335,7 +356,14 @@ function setHeader(){
     document.getElementById('klassInfo').textContent = `기관: ${schoolId || '-'} / 반: ${classId || '-'}`;
     document.getElementById('taRoster').value = (roster||[]).join('\n');
 
-    /* [AUTO] 부모코드 자동 보장 → 입력칸 자동 채움 (UI/흐름 변경 없음) */
+  }catch(_){}
+
+  // 학급 확인 직후 성취도 표를 최우선으로 표시 (학부모코드/최근사진은 표 이후)
+  await loadPerformance();
+  await new Promise(res=>{ requestAnimationFrame(()=>requestAnimationFrame(res)); });
+
+  /* [AUTO] 부모코드 — 성취도 표 표시를 막지 않도록 표 이후에 수행 */
+  (async()=>{
     try{
       const rPC = await jsonp(EXEC+'?'+new URLSearchParams({action:'ensureParentCode', key: tk}));
       if(rPC && rPC.ok && rPC.parentCode){
@@ -343,11 +371,9 @@ function setHeader(){
         if(ip) ip.value = String(rPC.parentCode);
       }
     }catch(_){}
-    /* [/AUTO] */
+  })();
 
-  }catch(_){}
-  await loadPerformance();
-  await loadRecent();
+  loadRecent(); // thumb는 큐로 점진 로딩(표 표시를 막지 않음)
 
   // 디버그 라벨(임시)
   try{
@@ -364,9 +390,69 @@ let itemsByChild = {};
 let filterChild = '';
 let showOnlyUnassigned = false;
 
+/* 세션 메모리 썸네일 캐시 + 동시 요청 제한(표 우선 표시용) */
+const THUMB_CONCURRENCY = 4;
+const thumbCache = new Map();   // fileId -> {ok, mime, b64}
+const thumbInflight = new Map(); // fileId -> Promise
+const thumbQueue = [];
+let thumbActive = 0;
+
+function pumpThumbQueue(){
+  while(thumbActive < THUMB_CONCURRENCY && thumbQueue.length){
+    const job = thumbQueue.shift();
+    thumbActive++;
+    Promise.resolve()
+      .then(job)
+      .catch(()=>{})
+      .finally(()=>{ thumbActive--; pumpThumbQueue(); });
+  }
+}
+function enqueueThumbJob(job, preferFront){
+  if(preferFront) thumbQueue.unshift(job);
+  else thumbQueue.push(job);
+  pumpThumbQueue();
+}
+function fetchThumbB64(fid){
+  const key = String(fid||'');
+  if(!key) return Promise.resolve({ok:false});
+  if(thumbCache.has(key)) return Promise.resolve(thumbCache.get(key));
+  if(thumbInflight.has(key)) return thumbInflight.get(key);
+  const p = (async()=>{
+    try{
+      const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'thumbB64', fileId: key}));
+      if(r && r.ok && r.b64){
+        const val = {ok:true, mime:(r.mime||'image/jpeg'), b64:r.b64};
+        thumbCache.set(key, val);
+        return val;
+      }
+      return {ok:false};
+    }catch(_){
+      return {ok:false};
+    }finally{
+      thumbInflight.delete(key);
+    }
+  })();
+  thumbInflight.set(key, p);
+  return p;
+}
+function loadThumb(fid, imgEl, preferFront){
+  try{ imgEl.classList.add('thumb-pending'); }catch(_){}
+  enqueueThumbJob(async ()=>{
+    const val = await fetchThumbB64(fid);
+    if(!imgEl || !imgEl.isConnected) return;
+    try{ imgEl.classList.remove('thumb-pending'); }catch(_){}
+    if(val && val.ok){
+      imgEl.src = 'data:'+val.mime+';base64,'+val.b64;
+    }else{
+      try{ imgEl.replaceWith(document.createTextNode('미리보기 실패')); }catch(_){}
+    }
+  }, !!preferFront);
+}
+
 async function loadPerformance(){
   const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '';
+  // listByChild 대기 중에도 표 영역이 비지 않도록 로딩 상태 유지/표시
+  showPerfLoading('성취 결과를 불러오고 있습니다...');
   itemsByChild = {};
   try{
     const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'listByChild', key:tk}));
@@ -393,6 +479,8 @@ async function loadPerformance(){
     if(ch && !names.includes(ch)) rows.push(renderRow(ch, itemsByChild[ch]));
   });
 
+  // 데이터 도착 즉시 이름/성취 상태 렌더 (thumb 완료 대기 없음)
+  tbody.innerHTML = '';
   rows.forEach(tr=>tbody.appendChild(tr));
   document.getElementById('noItems').style.display = rows.length? 'none' : 'block';
 }
@@ -425,12 +513,13 @@ function renderRow(kidName, mapByProblem){
       td.innerHTML = '<span class="empty">—</span>';
     }else{
       const img = document.createElement('img');
-      img.className='thumb'; img.alt=pr; img.dataset.fid = rec.fileId;
+      img.className='thumb thumb-pending'; img.alt=pr; img.dataset.fid = rec.fileId;
       img.title='클릭하여 편집';
       img.style.cursor='pointer';
       img.onclick = ()=> openEditor(rec.fileId);
       td.appendChild(img);
-      loadThumb(rec.fileId, img);
+      // 성취도 표 썸네일 우선 큐잉 (비동기, await 없음)
+      loadThumb(rec.fileId, img, true);
     }
     tr.appendChild(td);
   });
@@ -438,19 +527,6 @@ function renderRow(kidName, mapByProblem){
   tr.dataset.kid = (kidName||'');
   tr.dataset.hasAny = Object.keys(mapByProblem||{}).length ? '1' : '0';
   return tr;
-}
-
-async function loadThumb(fid, imgEl){
-  try{
-    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'thumbB64', fileId: fid}));
-    if(r && r.ok && r.b64){
-      imgEl.src = 'data:'+(r.mime||'image/jpeg')+';base64,'+r.b64;
-    }else{
-      imgEl.replaceWith(document.createTextNode('미리보기 실패'));
-    }
-  }catch(_){
-    imgEl.replaceWith(document.createTextNode('미리보기 실패'));
-  }
 }
 
 // 필터
@@ -485,6 +561,7 @@ async function loadRecent(){
     RECENTS = (r && Array.isArray(r.items))? r.items : [];
   }catch(_){ RECENTS=[]; }
 
+  // 메타/캡션 먼저 배치한 뒤, thumb는 동시성 제한 큐로 점진 로딩
   RECENTS.forEach(it=>{
     const c = normChild(it.child);
     const box = document.createElement('div'); box.className='thumbBox';
@@ -496,13 +573,7 @@ async function loadRecent(){
     cap.textContent = `${PROBLEM_LABELS[it.problem] || it.problem || '-'} ${c||'미분류'} · ${d.toLocaleString()}`;
     box.appendChild(cap);
     grid.appendChild(box);
-    // 썸네일 로드
-    (async ()=>{
-      try{
-        const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'thumbB64', fileId: it.fileId}));
-        if(r && r.ok && r.b64) img.src='data:'+(r.mime||'image/jpeg')+';base64,'+r.b64;
-      }catch(_){}
-    })();
+    loadThumb(it.fileId, img, false);
   });
 }
 
@@ -519,10 +590,10 @@ let editingFid = '';
 
 async function openEditor(fid){
   editingFid = fid;
-  // 이미지
+  // 이미지 (세션 캐시 재사용)
   try{
-    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'thumbB64', fileId: fid}));
-    if(r && r.ok && r.b64){ big.src='data:'+(r.mime||'image/jpeg')+';base64,'+r.b64; } else { big.src=''; }
+    const val = await fetchThumbB64(fid);
+    if(val && val.ok){ big.src='data:'+val.mime+';base64,'+val.b64; } else { big.src=''; }
   }catch(_){ big.src=''; }
 
   // 현재값
