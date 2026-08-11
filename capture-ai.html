@@ -83,8 +83,8 @@ let __blocked = false;  // 손님모드/미연결 차단 플래그
 let __busy = false;     // 중복 클릭 방지 가드
 
 /* ====================== 원본 API 상수 ====================== */
-const EXEC_A = "https://script.google.com/macros/s/REPLACE_WITH_NEW_A/exec";
-const EXEC_B = "https://script.google.com/macros/s/REPLACE_WITH_NEW_B/exec";
+const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
+const EXEC_B = "https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
 
 /* ====================== 파라미터/EXEC/TK 멀티소스 취합 ====================== */
 const mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
