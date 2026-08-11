@@ -74,13 +74,13 @@ video{width:min(96vw,1100px);height:auto;border-radius:12px;background:#000}
   </div>
 </div>
 
-<div id="done"><div class="card"><h2>성공입니다!</h2><p>업로드가 완료되었습니다.</p></div></div>
+<div id="done"><div class="card"><h2>사진 저장이 완료되었습니다.</h2><p>활동 결과가 학급에 저장되었습니다.<br>기기의 뒤로가기 버튼을 눌러 앱으로 돌아가 주세요.</p></div></div>
 
 <script>
 /* ====================== 공통: 쿼리 파서/전역 가드 ====================== */
 const qs = new URLSearchParams(location.search);
 let __blocked = false;  // 손님모드/미연결 차단 플래그
-let __busy = false;     // 중복 클릭 방지 가드
+let isUploading = false; // 촬영/업로드 중복 클릭 방지
 
 /* ====================== 원본 API 상수 ====================== */
 const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUWvslSAtfyssAQBRfizcY9D1MRJK9r_O0ZYDnQvKryalG/exec";
@@ -164,6 +164,35 @@ const problem = (qs.get('p') || qs.get('problem') || '').trim();
 let tk = TK;
 if (tk) { localStorage.setItem('tk', tk); localStorage.setItem('teacherKey', tk); }
 
+/* ====================== 완료 가드(즉시 재진입 차단, TTL) ====================== */
+const CAPTURE_DONE_TTL_MS = 3 * 60 * 1000; // 3분: 즉시 재진입만 차단, 이후 재학습 촬영 허용
+function captureDoneKey(){ return 'captureDone::' + (tk || '') + '::' + (problem || ''); }
+function markCaptureDone(){
+  try{ sessionStorage.setItem(captureDoneKey(), String(Date.now())); }catch(_){}
+}
+function isCaptureDoneRecent(){
+  try{
+    const raw = sessionStorage.getItem(captureDoneKey());
+    if(!raw) return false;
+    const ts = +raw;
+    if(!ts){ sessionStorage.removeItem(captureDoneKey()); return false; }
+    if((Date.now() - ts) > CAPTURE_DONE_TTL_MS){
+      sessionStorage.removeItem(captureDoneKey());
+      return false;
+    }
+    return true;
+  }catch(_){ return false; }
+}
+function showCaptureDoneUI(){
+  isUploading = true;
+  try{ btnShoot.disabled = true; }catch(_){}
+  try{ btnStart.disabled = true; }catch(_){}
+  try{ stopCam(); }catch(_){}
+  try{ splash.style.display = 'none'; }catch(_){}
+  try{ camBox.style.display = 'none'; }catch(_){}
+  try{ $('done').style.display = 'flex'; }catch(_){}
+}
+
 /* ====================== 얼굴 임베딩 모델 경로/함수 (무음 처리) ====================== */
 const MODEL_URL = './models';
 
@@ -206,6 +235,12 @@ let stream = null, roster = [], selected = '';
   if(!problem){ alert('문항 코드가 없습니다. (URL에 ?p=... 필요)'); return; }
   if(!tk){ alert('학급 연결 정보(tk)가 없습니다.\n홈에서 먼저 연결하거나 링크에 &tk=학급키 를 붙여 주세요.'); return; }
 
+  // 최근 완료(TTL 내)면 카메라 자동 시작 없이 완료 화면만 표시
+  if(isCaptureDoneRecent()){
+    showCaptureDoneUI();
+    return;
+  }
+
   try{
     const j = await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key: tk}));
     roster = (j && Array.isArray(j.roster)) ? j.roster : [];
@@ -232,6 +267,8 @@ function renderNames(){
 
 /* 카메라 (원본 유지) */
 async function startCam(){
+  if(isCaptureDoneRecent()){ showCaptureDoneUI(); return; }
+  if(btnStart.disabled && isUploading) return;
   stopCam();
   splash.style.display='none';
   camBox.style.display='flex';
@@ -245,12 +282,31 @@ async function startCam(){
   }
 }
 function stopCam(){ try{ stream && stream.getTracks().forEach(t=>t.stop()); }catch(_){} stream=null; }
-btnStart.onclick = ()=>startCam();
+btnStart.onclick = ()=>{
+  if(isCaptureDoneRecent() || btnStart.disabled) return;
+  startCam();
+};
 
 /* 촬영 → 업로드(임베딩 포함, 성공 팝업 1회 / 실패 무음) */
+const shootAriaDefault = btnShoot.getAttribute('aria-label') || '촬영';
+const noteNamesPrevHTML = noteNames.innerHTML;
+function setShootBusyUI(on){
+  if(on){
+    btnShoot.disabled = true;
+    btnShoot.setAttribute('aria-label', '사진을 저장하고 있어요...');
+    noteNames.style.display = 'block';
+    noteNames.textContent = '사진을 저장하고 있어요...';
+  }else{
+    btnShoot.disabled = false;
+    btnShoot.setAttribute('aria-label', shootAriaDefault);
+    noteNames.innerHTML = noteNamesPrevHTML;
+    noteNames.style.display = ((roster||[]).length > 0) ? 'block' : 'none';
+  }
+}
 btnShoot.onclick = async ()=>{
-  if (__busy) return;
-  __busy = true;
+  if (isUploading || isCaptureDoneRecent()) return;
+  isUploading = true;
+  setShootBusyUI(true);
   try {
     let dataURL=null, mime='image/jpeg', filename='capture.jpg', embed=[];
     if(stream){
@@ -259,6 +315,8 @@ btnShoot.onclick = async ()=>{
       embed = await getEmbeddingFromCanvas(cv);                 // 임베딩 실패해도 [] 반환
       dataURL=cv.toDataURL('image/jpeg',0.92);
     } else {
+      isUploading = false;
+      setShootBusyUI(false);
       btnPick.click();
       return;
     }
@@ -266,13 +324,18 @@ btnShoot.onclick = async ()=>{
     const child = (selected || ''); // 미선택=미분류
     await uploadBase64(dataURL,mime,filename,child,embed);
 
-    alert('업로드 완료되었습니다');      // 성공 메시지 1회
-    $('done').style.display='flex';      // 원본 오버레이 유지
-    setTimeout(function(){ try{window.close()}catch(_){ } history.back(); }, 500);
+    // 성공: 카메라 중지 + 재촬영 잠금 + 완료 화면 유지 (alert/자동 종료 없음)
+    stopCam();
+    isUploading = true;
+    btnShoot.disabled = true;
+    btnStart.disabled = true;
+    markCaptureDone();
+    showCaptureDoneUI();
   } catch(_) {
-    // 무음 처리: 실패 팝업/콘솔 출력 없음
-  } finally {
-    __busy = false;
+    // 실패 시에만 다시 시도 가능 (완료 플래그 기록 안 함)
+    isUploading = false;
+    btnStart.disabled = false;
+    setShootBusyUI(false);
   }
 };
 

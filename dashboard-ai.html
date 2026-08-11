@@ -198,9 +198,9 @@ const EXEC_A = "https://script.google.com/macros/s/AKfycby4camh7UDnlV4ElL3eJPUUW
 const EXEC_B = "https://script.google.com/macros/s/AKfycbzNUWjOhh3V-Cu2WYkl6voDKoAHFKjOl_OQbKH6rQYj6o8K06YoQmc0D7Q6WMJJ-Foz/exec";
 
 const qs = new URLSearchParams(location.search);
-const mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
+let mode = (qs.get('mode') || localStorage.getItem('mode') || 'b').toLowerCase()==='a' ? 'a' : 'b';
 localStorage.setItem('mode', mode);
-const EXEC = (mode==='a')? EXEC_A : EXEC_B;
+let EXEC = (mode==='a')? EXEC_A : EXEC_B;
 
 let tk = (localStorage.getItem('tk') || localStorage.getItem('teacherKey') || '').trim();
 let schoolId='', classId='', roster=[];
@@ -307,8 +307,31 @@ function setHeader(){
   setHeader();
   if(!tk){ alert('학급 연결 정보(tk)가 없습니다. (홈에서 먼저 로그인)'); return; }
   try{
-    const r = await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key:tk}));
-    schoolId = r.schoolId||''; classId = r.classId||''; roster = Array.isArray(r.roster)? r.roster : [];
+    let r = null;
+    try{
+      r = await jsonp(EXEC+'?'+new URLSearchParams({action:'resolveKey', key:tk}));
+    }catch(_){ r = null; }
+
+    // 현재 EXEC 실패 시에만 반대 EXEC를 1회 시도
+    if(!(r && r.ok && r.schoolId && r.classId)){
+      const ALT = (EXEC===EXEC_A) ? EXEC_B : EXEC_A;
+      try{
+        const rAlt = await jsonp(ALT+'?'+new URLSearchParams({action:'resolveKey', key:tk}));
+        if(rAlt && rAlt.ok && rAlt.schoolId && rAlt.classId){
+          r = rAlt;
+          if(ALT===EXEC_A){
+            mode = 'a'; EXEC = EXEC_A;
+            localStorage.setItem('mode','a'); localStorage.setItem('EXEC', EXEC_A);
+          }else{
+            mode = 'b'; EXEC = EXEC_B;
+            localStorage.setItem('mode','b'); localStorage.setItem('EXEC', EXEC_B);
+          }
+          setHeader();
+        }
+      }catch(_){ /* ALT 실패: 기존 실패 동작 유지 */ }
+    }
+
+    schoolId = (r && r.schoolId)||''; classId = (r && r.classId)||''; roster = (r && Array.isArray(r.roster))? r.roster : [];
     document.getElementById('klassInfo').textContent = `기관: ${schoolId || '-'} / 반: ${classId || '-'}`;
     document.getElementById('taRoster').value = (roster||[]).join('\n');
 
